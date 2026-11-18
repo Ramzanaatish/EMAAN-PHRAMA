@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Pharma Purchase Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+      * { box-sizing: border-box; }
+      :root{
+        --bg:#f4f6f5; --surface:#ffffff; --surface2:#eef2f0; --ink:#14201c; --ink2:#43554e; --ink3:#71827a;
+        --line:#dde5e1; --teal:#0b6e5d; --teal-soft:#e2f1ec; --teal-ink:#084f43;
+        --red:#c22e2e; --red-soft:#fbe9e7; --amber:#a35c05; --amber-soft:#fdf0dc; --green:#1d7a3a; --green-soft:#e5f3e8;
+        --sheet:#ffffff; --shadow:0 1px 2px rgba(16,40,33,.06),0 8px 24px -12px rgba(16,40,33,.18);
+        --radius:14px;
+      }
+      @media (prefers-color-scheme: dark){
+        :root{
+          --bg:#0d1311; --surface:#151d1a; --surface2:#1b2622; --ink:#e7efec; --ink2:#a9bcb4; --ink3:#7e9188;
+          --line:#26332e; --teal:#2fbfa4; --teal-soft:#123129; --teal-ink:#8fe3cf;
+          --red:#f0837c; --red-soft:#3a1d1b; --amber:#eda93f; --amber-soft:#38290f; --green:#5cc97e; --green-soft:#14301d;
+          --sheet:#171f1c; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.5);
+        }
+      }
+      html{ -webkit-text-size-adjust:100%; }
+      body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Manrope",system-ui,sans-serif; font-size:15px; line-height:1.5; }
+      .mono{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+      .wrap{ max-width:1180px; margin:0 auto; padding:0 16px 64px; }
+
+      /* ---------- connection strip ---------- */
+      .conn{ background:var(--teal-ink); color:#eafff8; margin:0 -16px; padding:14px 16px; }
+      @media (prefers-color-scheme: dark){ .conn{ background:#0a2a23; } }
+      .conn-in{ max-width:1180px; margin:0 auto; display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center; }
+      .conn .dot{ width:9px; height:9px; border-radius:50%; background:#f5b83d; box-shadow:0 0 0 4px rgba(245,184,61,.22); display:inline-block; margin-right:8px; }
+      .conn b{ font-weight:800; letter-spacing:.01em; }
+      .conn .sep{ opacity:.45; }
+      .conn .item{ font-size:13px; white-space:nowrap; }
+      .conn .grow{ flex:1; }
+      .btn{ appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+      .btn:hover{ border-color:var(--teal); }
+      .btn.primary{ background:var(--teal); border-color:var(--teal); color:#fff; }
+      @media (prefers-color-scheme: dark){ .btn.primary{ color:#06231c; } }
+      .btn.danger{ border-color:var(--red); color:var(--red); }
+      .btn.danger:hover{ background:var(--red-soft); }
+      .btn.small{ padding:5px 11px; font-size:12.5px; min-height:2rem; border-radius:8px; }
+      .btn.ghostlight{ background:transparent; border-color:rgba(255,255,255,.4); color:#eafff8; }
+      .btn[disabled]{ opacity:.55; cursor:default; }
+      .spin{ width:14px; height:14px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; display:none; }
+      .spinning .spin{ display:inline-block; animation:rot .7s linear infinite; }
+      @keyframes rot{ to{ transform:rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce){ .spinning .spin{ animation:none; } }
+
+      /* ---------- head ---------- */
+      .head{ padding:26px 0 6px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 18px; }
+      .head h1{ font-size:clamp(24px,4.5vw,34px); margin:0; font-weight:800; letter-spacing:-.02em; line-height:1.15; }
+      .head p{ margin:4px 0 0; color:var(--ink2); max-width:62ch; }
+      .demo-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-soft); color:var(--amber); border:1px solid currentColor; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+      .demo-off-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--surface2); color:var(--ink2); border:1px solid var(--line); font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+      .live-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--green-soft); color:var(--green); border:1px solid currentColor; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+      .live-error{ margin:16px 0 0; }
+      .live-error .box{ background:var(--red-soft); color:var(--red); border:1px solid var(--red); border-radius:12px; padding:12px 16px; font-size:14px; }
+
+      /* demo data switch */
+      .demo-ctl{ display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:9px 13px; box-shadow:var(--shadow); }
+      .demo-ctl .lab{ font-size:13px; font-weight:800; }
+      .demo-ctl .st{ font-size:12px; font-weight:700; color:var(--ink3); min-width:26px; }
+      .switch{ position:relative; display:inline-block; flex:none; }
+      .switch input{ appearance:none; -webkit-appearance:none; display:block; width:46px; height:26px; margin:0; background:var(--surface2); border:1px solid var(--line); border-radius:999px; cursor:pointer; position:relative; transition:background .2s; }
+      .switch input::after{ content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--ink3); transition:transform .2s, background .2s; }
+      .switch input:checked{ background:var(--teal); border-color:var(--teal); }
+      .switch input:checked::after{ transform:translateX(20px); background:#fff; }
+      .switch input:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+      @media (prefers-reduced-motion: reduce){ .switch input, .switch input::after{ transition:none; } }
+
+      /* ---------- KPI ---------- */
+      .kpis{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:20px 0 8px; }
+      @media (min-width:760px){ .kpis{ grid-template-columns:repeat(3,1fr); } }
+      @media (min-width:1020px){ .kpis{ grid-template-columns:repeat(6,1fr); } }
+      .kpi{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 15px; box-shadow:var(--shadow); }
+      .kpi .lab{ font-size:11.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink3); }
+      .kpi .val{ font-size:26px; font-weight:800; letter-spacing:-.01em; margin-top:3px; }
+      .kpi .sub{ font-size:12.5px; color:var(--ink2); margin-top:1px; }
+      .kpi.alert .val{ color:var(--red); } .kpi.warn .val{ color:var(--amber); }
+
+      /* ---------- tabs ---------- */
+      .tabs{ display:flex; flex-wrap:wrap; gap:6px; margin:22px 0 18px; border-bottom:1px solid var(--line); }
+      .tab{ appearance:none; border:0; background:none; color:var(--ink2); font:700 14.5px "Manrope",sans-serif; padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; min-height:2.75rem; }
+      .tab[aria-selected="true"]{ color:var(--teal-ink); border-bottom-color:var(--teal); }
+      .panel{ display:none; } .panel.on{ display:block; }
+
+      .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; }
+      .card h2{ font-size:17px; margin:0 0 4px; font-weight:800; letter-spacing:-.01em; }
+      .card .hint{ color:var(--ink2); font-size:13.5px; margin:0 0 14px; }
+      .grid2{ display:grid; gap:16px; } @media (min-width:900px){ .grid2{ grid-template-columns:1.35fr 1fr; } }
+      .grid2eq{ display:grid; gap:16px; } @media (min-width:900px){ .grid2eq{ grid-template-columns:1fr 1fr; } }
+
+      /* segmented control */
+      .seg{ display:inline-flex; background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px; }
+      .seg button{ appearance:none; border:0; background:none; font:700 13px "Manrope",sans-serif; color:var(--ink2); padding:6px 13px; border-radius:8px; cursor:pointer; min-height:2rem; }
+      .seg button[aria-pressed="true"]{ background:var(--surface); color:var(--teal-ink); box-shadow:0 1px 3px rgba(0,0,0,.14); }
+      .rowflex{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+      .rowflex .grow{ flex:1; }
+      .ctl-lab{ font-weight:700; font-size:13.5px; }
+
+      /* demand bars */
+      .bar-row{ display:grid; grid-template-columns:minmax(120px,190px) 1fr 74px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); }
+      .bar-row:last-child{ border-bottom:0; }
+      .bar-row .nm{ font-weight:600; font-size:13.5px; line-height:1.3; }
+      .bar-row .nm small{ display:block; color:var(--ink3); font-weight:500; font-size:12px; }
+      .track{ background:var(--surface2); border-radius:6px; height:16px; overflow:hidden; }
+      .fill{ height:100%; background:var(--teal); border-radius:6px; min-width:3px; }
+      .bar-row.hot .fill{ background:var(--red); }
+      .bar-row .qty{ text-align:right; font-size:13px; }
+
+      /* status chips */
+      .chip{ display:inline-block; font-size:11.5px; font-weight:800; letter-spacing:.03em; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+      .chip.out,.chip.critical{ background:var(--red-soft); color:var(--red); }
+      .chip.low{ background:var(--amber-soft); color:var(--amber); }
+      .chip.ok{ background:var(--green-soft); color:var(--green); }
+      .chip.ovr{ background:var(--teal-soft); color:var(--teal-ink); }
+
+      .mini-list{ list-style:none; margin:0; padding:0; }
+      .mini-list li{ display:flex; gap:10px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); }
+      .mini-list li:last-child{ border-bottom:0; }
+      .mini-list .grow{ flex:1; } .mini-list .nm{ font-weight:600; font-size:14px; }
+      .mini-list .dt{ color:var(--ink2); font-size:12.5px; }
+
+      /* tables */
+      .tblwrap{ overflow-x:auto; margin:0 -18px; padding:0 18px; }
+      table.tbl{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:820px; }
+      .tbl th{ text-align:left; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink3); padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap; }
+      .tbl td{ padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+      .tbl tr:last-child td{ border-bottom:0; }
+      .tbl .r{ text-align:right; } .tbl th.r{ text-align:right; }
+      .tbl .med{ font-weight:700; } .tbl .med small{ display:block; font-weight:500; color:var(--ink3); font-size:12px; }
+      .tbl .sug small{ display:block; font-weight:500; color:var(--ink3); font-size:11.5px; }
+      .daysbar{ display:inline-block; width:52px; height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; vertical-align:middle; margin-right:7px; }
+      .daysbar i{ display:block; height:100%; background:var(--green); }
+      .daysbar i.mid{ background:var(--amber); } .daysbar i.bad{ background:var(--red); }
+
+      /* calculation detail row */
+      .tbl tr.detail-row td{ background:var(--surface2); padding:14px 16px; }
+      .calc-grid{ display:grid; gap:6px 26px; font-size:13px; margin-bottom:12px; }
+      @media (min-width:760px){ .calc-grid{ grid-template-columns:1fr 1fr; } }
+      .calc-grid div{ display:flex; justify-content:space-between; gap:14px; border-bottom:1px dashed var(--line); padding:3px 0; }
+      .calc-grid div span:first-child{ color:var(--ink2); }
+      .calc-grid div span:last-child{ font-weight:700; text-align:right; }
+      .calc-result{ background:var(--teal-soft); color:var(--teal-ink); border-radius:8px; padding:9px 12px; font-size:13.5px; margin-bottom:12px; }
+      .ovr-form{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+      .ovr-form input[type="number"]{ width:110px; }
+      .ovr-form input[type="text"]{ flex:1 1 220px; }
+      .ovr-note{ font-size:13px; color:var(--teal-ink); font-weight:600; }
+
+      .toolbar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+      .toolbar input[type="search"], .toolbar select{ font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; }
+      .toolbar input[type="search"]{ flex:1 1 200px; }
+      .formula{ background:var(--teal-soft); color:var(--teal-ink); border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:14px; }
+      .formula b{ font-weight:800; }
+      .formula .fl{ display:block; margin:2px 0; }
+
+      /* form fields */
+      .field{ margin-bottom:12px; }
+      .field label{ display:block; font-size:12.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink3); margin-bottom:5px; }
+      .field input[type="text"], .field input[type="number"], .field select, .ovr-form input{
+        font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; width:100%;
+      }
+      .ovr-form input{ width:auto; }
+      .test-result{ font-size:13.5px; border-radius:10px; padding:10px 13px; margin-top:10px; display:none; }
+      .test-result.show{ display:block; }
+      .test-result.warnbox{ background:var(--amber-soft); color:var(--amber); }
+      .test-result.okbox{ background:var(--green-soft); color:var(--green); }
+
+      /* empty state */
+      .empty-state{ border:1.5px dashed var(--line); border-radius:12px; padding:26px 18px; text-align:center; color:var(--ink2); font-size:14px; }
+      .empty-state b{ display:block; color:var(--ink); font-size:15px; margin-bottom:4px; }
+      .empty-state span{ font-size:13px; color:var(--ink3); }
+
+      /* order panel */
+      .orderbox{ border:1.5px dashed var(--teal); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--surface); }
+      .orderbox h3{ margin:0 0 4px; font-size:15.5px; }
+      .orderbox .status-line{ font-size:13px; color:var(--ink2); margin:0 0 8px; }
+      .orderbox .grp{ margin:10px 0; } .orderbox .grp b{ font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink3); }
+      .orderbox ul{ margin:6px 0 0; padding-left:18px; font-size:13.5px; }
+      .orderbox .total{ display:flex; justify-content:space-between; border-top:1px solid var(--line); margin-top:12px; padding-top:10px; font-weight:800; font-size:15px; }
+      .empty-note{ color:var(--ink3); font-size:13.5px; }
+
+      /* report sheet */
+      .sheet{ background:var(--sheet); border:1px solid var(--line); border-radius:6px; box-shadow:var(--shadow); padding:30px 30px 26px; max-width:820px; margin:0 auto; }
+      .sheet .rhead{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; border-bottom:3px double var(--ink3); padding-bottom:12px; margin-bottom:16px; }
+      .sheet h2{ font-size:21px; margin:0; letter-spacing:-.01em; }
+      .sheet .rmeta{ color:var(--ink2); font-size:13px; text-align:right; }
+      .sheet h3{ font-size:14px; text-transform:uppercase; letter-spacing:.06em; margin:20px 0 8px; color:var(--teal-ink); }
+      .sheet table{ width:100%; border-collapse:collapse; font-size:13px; }
+      .sheet th{ text-align:left; border-bottom:1.5px solid var(--ink3); padding:5px 8px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink2); }
+      .sheet td{ padding:6px 8px; border-bottom:1px solid var(--line); }
+      .sheet .r{ text-align:right; } .sheet th.r{ text-align:right; }
+      .sheet .sum{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 22px; font-size:13.5px; }
+      @media (min-width:640px){ .sheet .sum{ grid-template-columns:repeat(4,1fr); } }
+      .sheet .sum div b{ display:block; font-size:19px; }
+      .sheet .foot{ margin-top:22px; padding-top:10px; border-top:1px solid var(--line); color:var(--ink3); font-size:12px; }
+      .sheet .demoflag{ background:var(--amber-soft); color:var(--amber); border-radius:8px; padding:8px 12px; font-size:12.5px; font-weight:700; margin-bottom:14px; }
+
+      /* audit trail */
+      .audit-list{ list-style:none; margin:0; padding:0; }
+      .audit-list li{ display:flex; gap:12px; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13.5px; align-items:baseline; }
+      .audit-list li:last-child{ border-bottom:0; }
+      .audit-list .tm{ color:var(--ink3); font-size:12.5px; white-space:nowrap; }
+
+      /* v2 later section */
+      .later{ border-style:dashed; background:var(--surface2); box-shadow:none; }
+      .later h2{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+      .later .tag{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; background:var(--ink3); color:var(--surface); padding:3px 9px; border-radius:999px; }
+      .later-grid{ display:grid; gap:10px; margin-top:12px; }
+      @media (min-width:760px){ .later-grid{ grid-template-columns:repeat(2,1fr); } }
+      @media (min-width:1020px){ .later-grid{ grid-template-columns:repeat(4,1fr); } }
+      .later-item{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; opacity:.85; }
+      .later-item b{ display:block; font-size:14px; margin-bottom:3px; }
+      .later-item span{ font-size:12.5px; color:var(--ink2); line-height:1.45; display:block; }
+      .later-item .st{ font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink3); margin-top:8px; }
+
+      .toast{ position:fixed; left:50%; bottom:22px; transform:translate(-50%,80px); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:12px; font-weight:600; font-size:14px; box-shadow:0 10px 30px rgba(0,0,0,.3); transition:transform .35s ease; z-index:50; max-width:92vw; text-align:center; }
+      .toast.show{ transform:translate(-50%,0); }
+      @media (prefers-reduced-motion: reduce){ .toast{ transition:none; } }
+
+      @media (max-width:640px){
+        .tblwrap{ overflow-x:visible; margin:0; padding:0; }
+        table.tbl{ min-width:0; } .tbl thead{ display:none; }
+        .tbl tr{ display:block; border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:10px; }
+        .tbl td{ display:flex; justify-content:space-between; align-items:center; gap:14px; border-bottom:1px dashed var(--line); padding:7px 2px; text-align:right; }
+        .tbl td:last-child{ border-bottom:0; }
+        .tbl td::before{ content:attr(data-label); font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink3); text-align:left; }
+        .tbl td.med-cell{ display:block; text-align:left; } .tbl td.med-cell::before{ display:none; }
+        .tbl tr.detail-row{ background:var(--surface2); }
+        .tbl tr.detail-row td{ display:block; text-align:left; border-bottom:0; padding:6px 2px; }
+        .tbl tr.detail-row td::before{ display:none; }
+        .tbl td.empty-cell{ display:block; text-align:left; } .tbl td.empty-cell::before{ display:none; }
+        .bar-row{ grid-template-columns:1fr 64px; } .bar-row .track{ grid-column:1 / -1; order:3; }
+        .sheet{ padding:20px 16px; } .sheet .rmeta{ text-align:left; }
+        .calc-grid div{ flex-direction:column; gap:0; } .calc-grid div span:last-child{ text-align:left; }
+      }
+      @media print{
+        body{ background:#fff; } .conn,.tabs,.toolbar,.no-print,.toast,.demo-ctl,.live-error{ display:none !important; }
+        .panel{ display:none !important; } #panel-report{ display:block !important; }
+        .sheet{ box-shadow:none; border:0; max-width:none; }
+        .wrap{ padding:0; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Connection status: live version mein ye strip SQL Server connection ki halat dikhayegi -->
+    <div class="conn">
+      <div class="conn-in">
+        <span class="item"><span class="dot"></span><b id="connTitle">Preview Mode — Not Connected</b></span>
+        <span class="item">Target Server <span class="mono">DESKTOP-SJO68CG\SQLEXPRESS</span></span>
+        <span class="item sep">|</span>
+        <span class="item">Database <span class="mono">POS_DB</span> (SmilePOS)</span>
+        <span class="item sep">|</span>
+        <span class="item">Access: Read-Only</span>
+        <span class="grow"></span>
+        <span class="item">Last fetch: <span class="mono" id="lastFetch">18 Nov 2026, 3:52 PM (sample)</span></span>
+        <button class="btn ghostlight small" id="refreshBtn" type="button"><span class="spin"></span>↻ Refresh Data</button>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="live-error" id="liveError" style="display:none" role="alert">
+        <div class="box"><b>⚠ Live data unavailable</b> — <span id="liveErrorMsg"></span> Filhal demo (sample) data dikhaya ja raha hai. Live data ke liye local server chala kar page <span class="mono">http://localhost:8080</span> se kholein — file se khuli page server tak nahi pohanch sakti.</div>
+      </div>
+      <div class="head">
+        <div class="grow" style="flex:1 1 320px">
+          <h1>Pharma Purchase Assistant</h1>
+          <p>SmilePOS ke data se rozana ki purchasing guide: kaun si medicine sab se zyada bik rahi hai, kahan stock khatam honay wala hai, aur kis supplier se kitna order karna hai — har suggestion ke peeche poori calculation nazar aati hai.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end">
+          <div class="demo-ctl">
+            <span class="lab">Demo Data</span>
+            <label class="switch">
+              <input type="checkbox" id="demoToggle" checked aria-label="Demo data on ya off karein" />
+            </label>
+            <span class="st" id="demoState">ON</span>
+          </div>
+          <span class="demo-badge" id="previewBadge">● PREVIEW — sample data dikhaya ja raha hai</span>
+          <span class="live-badge" id="liveBadge" style="display:none">● LIVE — POS_DB se real data</span>
+          <span class="demo-off-badge" id="demoOffBadge" style="display:none">Demo data OFF — sirf live data dikhega</span>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpis" id="kpis"></div>
+
+      <div class="formula" style="margin:14px 0 0; font-size:14px">
+        <b>Purchase Formula (Final Recommendation):</b>
+        <span class="fl mono">ADS = Net Sales ÷ Analysis Days</span>
+        <span class="fl mono">Target Stock = (ADS × Cover Days) + Safety Stock</span>
+        <span class="fl mono">Suggested Purchase = max(0, Target Stock − Usable Stock − Confirmed Incoming)</span>
+        <span style="font-size:12.5px">Net sales mein returns aur cancelled sales shaamil nahi. Usable stock mein expired / damaged stock nahi gina jata. Safety Stock = ADS × safety days (Settings se badal sakte hain).</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" role="tablist" aria-label="Pharma Purchase Assistant sections">
+        <button class="tab" role="tab" aria-selected="true" data-tab="overview" type="button">Overview</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="reorder" type="button">Reorder Suggestions</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="stock" type="button">All Stock</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="report" type="button">Daily Report (PDF)</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="settings" type="button">Settings / Backup / Audit</button>
+      </div>
+
+      <!-- ============ OVERVIEW ============ -->
+      <section class="panel on" id="panel-overview" role="tabpanel">
+        <div class="grid2">
+          <div class="card">
+            <div class="rowflex">
+              <div class="grow">
+                <h2>Most Demanding Medicines</h2>
+                <p class="hint" style="margin-bottom:0">Sab se zyada biknay wali items — net units sold ke hisab se rank.</p>
+              </div>
+              <div class="seg" role="group" aria-label="Sales analysis period">
+                <button type="button" data-period="7" aria-pressed="false">7 din</button>
+                <button type="button" data-period="30" aria-pressed="true">30 din</button>
+                <button type="button" data-period="90" aria-pressed="false">90 din</button>
+              </div>
+            </div>
+            <div id="demandChart" style="margin-top:12px"></div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h2>⚠ Needs Attention</h2>
+              <p class="hint">Usable stock 3 din ya is se pehle khatam honay wala hai — pehle ye order karein.</p>
+              <div id="attentionWrap"></div>
+            </div>
+            <div class="card">
+              <h2>Near Expiry</h2>
+              <p class="hint">6 mah ke andar expire honay walay batches (SaleExpiryItems se) — ye quantity usable stock mein nahi gini jati.</p>
+              <div id="expiryWrap"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REORDER ============ -->
+      <section class="panel" id="panel-reorder" role="tabpanel">
+        <div class="card">
+          <h2>Reorder Suggestions</h2>
+          <p class="hint">Har suggestion ke saath poori calculation nazar aati hai — “Calculation” dabayein. Quantity ghalat lagay to manual override kar sakte hain, lekin wajah (reason) likhna lazmi hai — override audit trail mein record ho jata hai. Koi order khud nahi banta; pehle draft banta hai, phir aap approve karte hain.</p>
+          <div class="formula">
+            <b>Formula:</b>
+            <span class="fl mono">ADS = Net Sales ÷ Analysis Days · Target = (ADS × Cover Days) + Safety Stock</span>
+            <span class="fl mono">Suggested = max(0, Target − Usable Stock − Confirmed Incoming Stock)</span>
+            <span style="font-size:12.5px">Usable stock = total stock − expired/damaged. Sirf confirmed incoming gina jata hai taake aik hi pending order do dafa na gin liya jaye.</span>
+          </div>
+          <div class="rowflex" style="margin-bottom:8px">
+            <span class="ctl-lab">Sales analysis:</span>
+            <div class="seg" role="group" aria-label="Sales analysis days">
+              <button type="button" data-period="7" aria-pressed="false">7 din</button>
+              <button type="button" data-period="30" aria-pressed="true">30 din</button>
+              <button type="button" data-period="90" aria-pressed="false">90 din</button>
+            </div>
+            <span class="ctl-lab">Cover chahiye:</span>
+            <div class="seg" role="group" aria-label="Cover days">
+              <button type="button" data-cover="7" aria-pressed="false">7 din</button>
+              <button type="button" data-cover="14" aria-pressed="false">14 din</button>
+              <button type="button" data-cover="21" aria-pressed="true">21 din</button>
+              <button type="button" data-cover="30" aria-pressed="false">30 din</button>
+            </div>
+            <span class="grow"></span>
+            <span class="mono" id="reorderSummary" style="font-size:13.5px; color:var(--ink2)"></span>
+          </div>
+          <p class="hint" style="margin-bottom:12px">Safety stock: <b id="safetyEcho">5 din</b> ka ADS — Settings se tabdeel kar sakte hain.</p>
+          <div class="tblwrap">
+            <table class="tbl" id="reorderTable">
+              <thead><tr>
+                <th>Medicine</th><th>Supplier</th><th class="r">Usable Stock</th><th class="r">ADS</th>
+                <th class="r">Target</th><th class="r">Incoming</th><th class="r">Order Qty</th><th class="r">Est. Cost</th><th></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="orderbox" id="orderBox">
+            <h3>Supplier-wise Purchase Order — Draft</h3>
+            <p class="status-line" id="orderStatus">Status: <b>Draft</b> — ye order abhi kahin nahi gaya. Quantities, rates aur supplier details check kar ke approve karein, phir file download kar ke supplier ko bhejein.</p>
+            <div id="orderBody"></div>
+            <div class="total" id="orderTotalRow" style="display:none"><span>Total Estimated Cost</span><span class="mono" id="orderTotal"></span></div>
+            <div class="rowflex no-print" style="margin-top:12px">
+              <button class="btn primary" id="approveOrderBtn" type="button" disabled>✓ Approve Draft</button>
+              <button class="btn" id="downloadOrderBtn" type="button" disabled>⬇ Download Order File</button>
+              <button class="btn" id="clearOrderBtn" type="button" disabled>Clear</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ALL STOCK ============ -->
+      <section class="panel" id="panel-stock" role="tabpanel">
+        <div class="card">
+          <h2>Complete Stock Position</h2>
+          <p class="hint">ItemStock view se position — purchases − sales ± returns + opening stock. “Usable” mein expired/damaged quantity shaamil nahi. Search ya supplier se filter karein.</p>
+          <div class="toolbar no-print">
+            <input type="search" id="stockSearch" placeholder="Medicine ka naam search karein…" aria-label="Search medicine" />
+            <select id="supplierFilter" aria-label="Filter by supplier"><option value="">Sab Suppliers</option></select>
+            <select id="statusFilter" aria-label="Filter by status">
+              <option value="">Sab Status</option><option value="out">Out of Stock</option>
+              <option value="critical">Critical</option><option value="low">Low</option><option value="ok">OK</option>
+            </select>
+          </div>
+          <div class="tblwrap">
+            <table class="tbl" id="stockTable">
+              <thead><tr>
+                <th>Medicine</th><th>Supplier</th><th class="r">Stock</th><th class="r">Usable</th><th class="r">Net Sold (30 din)</th>
+                <th>Stock chalega</th><th class="r">ReOrder / Max</th><th>Status</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="empty-note" id="stockEmpty" style="display:none; margin-top:12px">Koi item match nahi hua — search ya filter badal kar dekhein.</p>
+          <div id="stockEmptyState" style="display:none; margin-top:4px"></div>
+        </div>
+      </section>
+
+      <!-- ============ REPORT ============ -->
+      <section class="panel" id="panel-report" role="tabpanel">
+        <div class="rowflex no-print" style="margin-bottom:14px">
+          <p style="margin:0; color:var(--ink2); font-size:14px" class="grow">Rozana subah yahi report PDF ban kar ready milti hai — neechay usi ka preview hai jo print/download hoga. Report mein report date aur data-refresh time lazmi nazar aata hai.</p>
+          <button class="btn primary" id="downloadReportBtn" type="button">⬇ Download Daily Report</button>
+        </div>
+        <div class="sheet" id="reportSheet">
+          <div class="rhead">
+            <div>
+              <h2>Daily Stock &amp; Purchasing Report</h2>
+              <div style="color:var(--ink2); font-size:13px">Medicine Distributor — Pharma Purchase Assistant · SmilePOS</div>
+            </div>
+            <div class="rmeta">
+              <div><b>Report date:</b> <span class="mono">Wed, 18 Nov 2026</span></div>
+              <div><b>Source:</b> <span class="mono">POS_DB · DESKTOP-SJO68CG\SQLEXPRESS</span></div>
+              <div><b>Data refreshed:</b> <span class="mono" id="reportFetch">18 Nov 2026, 3:52 PM</span></div>
+              <div><b>Settings:</b> <span class="mono" id="reportSettings">Analysis 30 din · Cover 21 din · Safety 5 din</span></div>
+            </div>
+          </div>
+          <div class="demoflag" id="reportDemoFlag">PREVIEW — ye report sample (demo) data par bani hai. Live report POS_DB connect honay ke baad real data par banegi.</div>
+          <div id="reportBody"></div>
+          <div class="foot">Ye report POS_DB se read-only fetch par auto-generate hoti hai. Formula: ADS = Net Sales ÷ Analysis Days; Target Stock = (ADS × Cover Days) + Safety Stock; Suggested Purchase = max(0, Target − Usable Stock − Confirmed Incoming). Manual overrides (agar koi hain) report mein “override” likh kar nazar aate hain. Final order se pehle rate aur availability supplier se confirm karein.</div>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS / BACKUP / AUDIT ============ -->
+      <section class="panel" id="panel-settings" role="tabpanel">
+        <div class="grid2eq">
+          <div class="card">
+            <h2>Demo Data</h2>
+            <p class="hint">Demo data sirf layout samajhne ke liye hai. Jab asal software POS_DB se live data fetch karay ga, demo data hata dein taake sirf real data nazar aaye — sample rows aur figures kahin nahi rahenge.</p>
+            <p style="margin:0 0 12px; font-size:14px">Current status: <b id="demoStatusText">ON — sample data dikh raha hai (PREVIEW)</b></p>
+            <div class="rowflex">
+              <button class="btn danger" id="removeDemoBtn" type="button">Remove Demo Data</button>
+              <button class="btn" id="restoreDemoBtn" type="button" disabled>Demo Data Wapas Layein</button>
+            </div>
+            <p class="hint" style="margin:12px 0 0">Upar header wala “Demo Data” switch bhi yahi kaam karta hai. Demo off karne se order draft aur overrides bhi saaf ho jate hain, kyunke woh demo items par bane thay.</p>
+          </div>
+
+          <div class="card">
+            <h2>POS Connection (Read-Only)</h2>
+            <p class="hint">Helper sirf parhta hai — POS_DB mein kabhi koi INSERT / UPDATE / DELETE nahi hota. Aik dafa settings save karein, phir har refresh khud connect ho jata hai.</p>
+            <div class="field"><label for="cfgServer">Server / Instance</label><input type="text" id="cfgServer" value="DESKTOP-SJO68CG\SQLEXPRESS" /></div>
+            <div class="field"><label for="cfgDb">Database</label><input type="text" id="cfgDb" value="POS_DB" /></div>
+            <div class="field"><label for="cfgAuth">Authentication</label>
+              <select id="cfgAuth">
+                <option>Windows Authentication (read-only)</option>
+                <option>Dedicated read-only SQL login</option>
+              </select>
+            </div>
+            <div class="rowflex">
+              <button class="btn primary" id="saveConnBtn" type="button">Save Settings</button>
+              <button class="btn" id="testConnBtn" type="button">Test Connection</button>
+            </div>
+            <div class="test-result warnbox" id="testResult"></div>
+          </div>
+
+          <div class="card">
+            <h2>Calculation Settings</h2>
+            <p class="hint">Safety stock har item ke liye ADS ke hisab se banta hai: Safety Stock = ADS × safety days. Cover days aur analysis window Reorder Suggestions tab se badalte hain.</p>
+            <div class="field"><label for="cfgSafety">Safety Stock (days of ADS)</label><input type="number" id="cfgSafety" value="5" min="0" max="30" /></div>
+            <button class="btn primary" id="saveCalcBtn" type="button">Apply</button>
+            <p class="hint" style="margin:12px 0 0">Discontinued items suggestions mein nahi aate. Supplier mapping kabhi guess nahi hoti — jis item ka supplier POS mein mapped nahi, woh “Supplier not mapped” likh kar alag nazar aata hai taake pehle mapping theek ki jaye.</p>
+          </div>
+
+          <div class="card">
+            <h2>Backup &amp; Restore</h2>
+            <p class="hint">Assistant ki apni local data (settings, supplier mappings, overrides, audit trail) ki backup file banti hai — POS ka data is mein shaamil nahi, woh hamesha POS_DB se fresh fetch hota hai.</p>
+            <div class="rowflex">
+              <button class="btn primary" id="backupBtn" type="button">⬇ Download Backup</button>
+              <label class="btn" for="restoreFile" style="margin:0">Restore Backup…</label>
+              <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" />
+            </div>
+            <p class="hint" style="margin:12px 0 0" id="backupNote">Backup mein shaamil: connection settings, safety-stock setting, manual overrides (reasons ke saath), audit trail.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Audit Trail</h2>
+          <p class="hint">Aham tabdeelian yahan record hoti hain — manual overrides (reason ke saath), order approvals, demo data on/off, settings changes aur backups. Live version mein ye entries assistant ki apni SQLite database mein mehfooz rehti hain.</p>
+          <ul class="audit-list" id="auditList"></ul>
+        </div>
+      </section>
+
+      <!-- ============ V2 / LATER — V1 mein shaamil nahi ============ -->
+      <section class="card later" aria-label="Version 2 — later features">
+        <h2>Coming in v2 — Later <span class="tag">Not in V1</span></h2>
+        <p class="hint" style="margin-bottom:0">Version 1 mein ye kaam karta hai: <b>Overview Dashboard</b>, <b>Reorder Suggestions</b> (improved formula + overrides), <b>All Stock</b>, <b>Supplier-wise PO Draft</b>, <b>Daily Report (PDF/Excel)</b> aur <b>Settings / Backup / Audit</b>. Neeche wali cheezein Final Recommendation ke mutabiq V1 se bahir rakhi gayi hain — in ka koi button ya screen V1 mein kaam nahi karta.</p>
+        <div class="later-grid">
+          <div class="later-item"><b>Goods Receiving (GRN)</b><span>Supplier se maal wasool kar ke POS stock se match aur enter karna.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>Invoice Matching</b><span>Supplier invoice ko order aur received stock se mila kar farq pakarna.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>Payment &amp; PO Lifecycle Tracking</b><span>Order ki poori life — bhejna, dispatch, receiving aur supplier payment track karna.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>Multi-Branch / Cloud Dashboard</b><span>Kai branches ka data aik jagah sync aur central dashboard.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>Online Licensing</b><span>License key, activation aur renewal ka online nizam; advanced user/role administration.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>AI Prediction / Chatbot</b><span>Demand forecasting aur AI assistant — V1 ka formula jaan boojh kar simple aur explainable rakha gaya hai.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>More POS Connectors</b><span>SmilePOS ke ilawa doosre POS systems ki read-only integration.</span><div class="st">v2 — Planned</div></div>
+          <div class="later-item"><b>Order Tracking</b><span>Bheje gaye order ki status (pending, dispatched, received) isi app mein track karna.</span><div class="st">v2 — Planned</div></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+      // ---- Sample (demo) data — live version mein yehi fields POS_DB se aayenge:
+      // ItemInfo (ReOrderLevel/MaxLevel), ItemStock view, SaleDetail (net demand), AccountInfo (supplier)
+      // net30 = net sales 30 din (returns/cancelled hata kar) · f7/f90 = 7 aur 90 din ke hisse
+      // unusable = expired/damaged qty jo usable stock mein nahi ginti · incoming = confirmed pending order qty
+      var ITEMS = [
+        { name:"Panadol Extra 500mg",  pack:"Strip of 10 tabs", supplier:"Premier Agencies",   stock:142, unusable:0,  incoming:500, net30:1860, f7:0.24, f90:2.9,  reorder:300, max:2400, cost:42,  packSize:10 },
+        { name:"Augmentin 625mg",      pack:"Strip of 6 tabs",  supplier:"Premier Agencies",   stock:38,  unusable:6,  incoming:0,   net30:720,  f7:0.22, f90:3.0,  reorder:120, max:900,  cost:310, packSize:6 },
+        { name:"Brufen 400mg",         pack:"Strip of 10 tabs", supplier:"Aslam Traders",      stock:0,   unusable:0,  incoming:200, net30:540,  f7:0.25, f90:2.8,  reorder:100, max:800,  cost:55,  packSize:10 },
+        { name:"Flagyl 400mg",         pack:"Strip of 10 tabs", supplier:"Madina Medicine Co.",stock:22,  unusable:0,  incoming:0,   net30:660,  f7:0.23, f90:2.95, reorder:150, max:1000, cost:38,  packSize:10 },
+        { name:"Risek 20mg",           pack:"Strip of 14 caps", supplier:"Premier Agencies",   stock:96,  unusable:0,  incoming:0,   net30:840,  f7:0.24, f90:2.9,  reorder:140, max:1100, cost:185, packSize:14 },
+        { name:"Arinac Forte",         pack:"Strip of 10 tabs", supplier:"Aslam Traders",      stock:310, unusable:60, incoming:0,   net30:690,  f7:0.21, f90:3.1,  reorder:120, max:900,  cost:60,  packSize:10, expiry:{ batch:"B-2214", date:"Feb 2027", qty:60, key:202702 } },
+        { name:"Hydryllin Syrup 120ml",pack:"Bottle",           supplier:"Madina Medicine Co.",stock:12,  unusable:0,  incoming:100, net30:480,  f7:0.26, f90:2.85, reorder:80,  max:600,  cost:95,  packSize:1 },
+        { name:"Disprin",              pack:"Strip of 10 tabs", supplier:"City Distributors",  stock:520, unusable:45, incoming:0,   net30:1230, f7:0.23, f90:2.9,  reorder:200, max:1800, cost:28,  packSize:10, expiry:{ batch:"B-1987", date:"Dec 2026", qty:45, key:202612 } },
+        { name:"CaC-1000 Plus",        pack:"Tube of 10 tabs",  supplier:"Premier Agencies",   stock:64,  unusable:0,  incoming:0,   net30:570,  f7:0.24, f90:3.0,  reorder:100, max:800,  cost:260, packSize:10 },
+        { name:"Surbex-Z",             pack:"Bottle of 30 tabs",supplier:"Aslam Traders",      stock:45,  unusable:0,  incoming:0,   net30:390,  f7:0.22, f90:2.9,  reorder:60,  max:500,  cost:720, packSize:1 },
+        { name:"Nuberol Forte",        pack:"Strip of 10 tabs", supplier:"Madina Medicine Co.",stock:8,   unusable:0,  incoming:0,   net30:450,  f7:0.25, f90:2.8,  reorder:90,  max:700,  cost:88,  packSize:10 },
+        { name:"Velosef 500mg",        pack:"Strip of 6 caps",  supplier:"City Distributors",  stock:130, unusable:30, incoming:0,   net30:300,  f7:0.20, f90:3.1,  reorder:60,  max:600,  cost:240, packSize:6, expiry:{ batch:"B-3102", date:"Jan 2027", qty:30, key:202701 } },
+        { name:"Calpol Syrup 90ml",    pack:"Bottle",           supplier:"Premier Agencies",   stock:26,  unusable:0,  incoming:150, net30:510,  f7:0.26, f90:2.85, reorder:90,  max:700,  cost:110, packSize:1 },
+        { name:"Strepsils",            pack:"Pack of 24 lozenges", supplier:"City Distributors", stock:400, unusable:0,  incoming:0,   net30:780,  f7:0.23, f90:2.95, reorder:150, max:1200, cost:150, packSize:1 },
+        { name:"Montika 10mg",         pack:"Strip of 14 tabs", supplier:"Aslam Traders",      stock:58,  unusable:0,  incoming:0,   net30:420,  f7:0.21, f90:3.0,  reorder:70,  max:650,  cost:240, packSize:14 },
+        { name:"Gravinate 50mg",       pack:"Strip of 10 tabs", supplier:"Madina Medicine Co.",stock:0,   unusable:0,  incoming:120, net30:270,  f7:0.24, f90:2.9,  reorder:60,  max:500,  cost:45,  packSize:10 },
+        { name:"Deltacortril 5mg",     pack:"Strip of 10 tabs", supplier:"City Distributors",  stock:175, unusable:0,  incoming:0,   net30:210,  f7:0.19, f90:3.2,  reorder:50,  max:500,  cost:130, packSize:10 },
+        { name:"Septran DS",           pack:"Strip of 10 tabs", supplier:"Premier Agencies",   stock:33,  unusable:0,  incoming:0,   net30:390,  f7:0.23, f90:2.9,  reorder:80,  max:700,  cost:68,  packSize:10 }
+      ];
+
+      var state = {
+        demo: true,
+        liveItems: null,     // GET /api/data se aaya live data (null = abhi tak fetch nahi hua / fail)
+        liveFetchedAt: null, // server ka bheja hua fetched_at
+        analysis: 30,        // sales analysis window (din): 7 / 30 / 90
+        cover: 21,           // target cover (din): 7 / 14 / 21 / 30
+        safetyDays: 5,       // safety stock = ADS × safetyDays
+        order: {},           // name -> final qty (draft mein shaamil)
+        overrides: {},       // name -> { qty, reason }
+        openCalc: {},        // name -> true (calculation row khuli hai)
+        approved: false,
+        audit: []            // { time, text }
+      };
+
+      function data(){ return state.demo ? ITEMS : (state.liveItems || []); }
+      function findItem(name){ var d = data(); for (var i = 0; i < d.length; i++) if (d[i].name === name) return d[i]; return null; }
+
+      // ---------- Formula (Final Recommendation) ----------
+      function netSold(it, days){
+        if (days === 7) return Math.round(it.net30 * it.f7);
+        if (days === 90) return Math.round(it.net30 * it.f90);
+        return it.net30;
+      }
+      function ads(it){ return netSold(it, state.analysis) / state.analysis; }        // ADS = net sales ÷ analysis days
+      function ads30(it){ return it.net30 / 30; }
+      function usable(it){ return Math.max(0, it.stock - (it.unusable || 0)); }
+      function safetyStock(it){ return Math.ceil(ads(it) * state.safetyDays); }
+      function targetStock(it){ return Math.ceil(ads(it) * state.cover) + safetyStock(it); }
+      function suggestedQty(it){
+        var s = targetStock(it) - usable(it) - (it.incoming || 0);
+        return s > 0 ? s : 0;                                                          // max(0, …)
+      }
+      function finalQty(it){
+        var o = state.overrides[it.name];
+        return o ? o.qty : suggestedQty(it);
+      }
+      function needsReorder(it){ return suggestedQty(it) > 0 || !!state.overrides[it.name]; }
+
+      function daysLeft(it){ var a = ads30(it); return a > 0 ? usable(it) / a : Infinity; }
+      function statusOf(it){
+        if (usable(it) <= 0) return "out";
+        if (daysLeft(it) <= 3) return "critical";
+        if (usable(it) <= it.reorder) return "low";
+        return "ok";
+      }
+      var STATUS_LABEL = { out:"OUT OF STOCK", critical:"CRITICAL", low:"LOW", ok:"OK" };
+      function fmt(n){ return n.toLocaleString("en-PK"); }
+      function rs(n){ return "Rs " + fmt(Math.round(n)); }
+      function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+      function daysText(it){
+        if (usable(it) <= 0) return "Khatam";
+        var d = daysLeft(it);
+        if (d === Infinity) return "—";
+        return (d < 10 ? d.toFixed(1) : Math.round(d)) + " din";
+      }
+      function daysBar(it){
+        var d = daysLeft(it);
+        var pct = usable(it) <= 0 ? 0 : Math.min(100, (d / 30) * 100);
+        var cls = d <= 3 ? "bad" : (d <= 10 ? "mid" : "");
+        return '<span class="daysbar"><i class="' + cls + '" style="width:' + pct + '%"></i></span>' + daysText(it);
+      }
+      function toast(msg){
+        var t = document.getElementById("toast");
+        t.textContent = msg; t.classList.add("show");
+        setTimeout(function(){ t.classList.remove("show"); }, 2800);
+      }
+      function stampNow(){
+        var now = new Date();
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        var hh = now.getHours(), mm = ("0" + now.getMinutes()).slice(-2);
+        var ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12;
+        return now.getDate() + " " + months[now.getMonth()] + " " + now.getFullYear() + ", " + hh + ":" + mm + " " + ap;
+      }
+      function emptyStateHTML(){
+        return '<div class="empty-state"><b>Live data will appear here after connecting to POS_DB.</b>' +
+          'Filhal koi data nahi — demo data off hai, is liye sample rows aur figures nahi dikh rahe.' +
+          '<br><span>Layout dobara dekhna ho to upar “Demo Data” switch ON kar dein.</span></div>';
+      }
+
+      // ---------- Audit ----------
+      function logAudit(text){
+        state.audit.unshift({ time: stampNow(), text: text });
+        renderAudit();
+      }
+      function renderAudit(){
+        var el = document.getElementById("auditList");
+        if (!state.audit.length){
+          el.innerHTML = '<li class="empty-note">Abhi koi entry nahi — override, approval ya settings change karne par yahan record ban jayega.</li>';
+          return;
+        }
+        el.innerHTML = state.audit.map(function(a){
+          return '<li><span class="tm mono">' + esc(a.time) + '</span><span>' + esc(a.text) + "</span></li>";
+        }).join("");
+      }
+
+      // ---------- Connection strip / demo chrome ----------
+      function liveActive(){ return !state.demo && !!(state.liveItems && state.liveItems.length); }
+      function renderChrome(){
+        var t = document.getElementById("demoToggle");
+        var live = liveActive();
+        t.checked = state.demo;
+        document.getElementById("demoState").textContent = state.demo ? "ON" : "OFF";
+        document.getElementById("previewBadge").style.display = state.demo ? "" : "none";
+        document.getElementById("liveBadge").style.display = live ? "" : "none";
+        document.getElementById("demoOffBadge").style.display = (!state.demo && !live) ? "" : "none";
+        document.getElementById("connTitle").textContent = state.demo ? "Preview Mode — Not Connected" : (live ? "Live — POS_DB Connected" : "Not Connected — No Live Data");
+        document.getElementById("lastFetch").textContent = state.demo ? "18 Nov 2026, 3:52 PM (sample)" : (live ? state.liveFetchedAt + " (live)" : "— abhi tak koi live fetch nahi hua");
+        document.getElementById("reportFetch").textContent = state.demo ? "18 Nov 2026, 3:52 PM" : (live ? state.liveFetchedAt : "— no live fetch yet");
+        document.getElementById("reportDemoFlag").style.display = state.demo ? "" : "none";
+        document.getElementById("demoStatusText").textContent = state.demo ? "ON — sample data dikh raha hai (PREVIEW)" : (live ? "OFF — POS_DB se live data dikh raha hai (LIVE)" : "OFF — sirf live data dikhega (POS_DB connect honay ke baad)");
+        document.getElementById("removeDemoBtn").disabled = !state.demo;
+        document.getElementById("restoreDemoBtn").disabled = state.demo;
+        document.getElementById("reportSettings").textContent = "Analysis " + state.analysis + " din · Cover " + state.cover + " din · Safety " + state.safetyDays + " din";
+        document.getElementById("safetyEcho").textContent = state.safetyDays + " din";
+      }
+
+      // ---------- KPIs ----------
+      function renderKpis(){
+        var d = data();
+        if (!d.length){
+          var labs = ["Total Items","Out of Stock","Critical (≤ 3 din)","Low Stock","Net Units Sold (" + state.analysis + " din)","Est. Purchase Value"];
+          document.getElementById("kpis").innerHTML = labs.map(function(l){
+            return '<div class="kpi"><div class="lab">' + l + '</div><div class="val mono">—</div><div class="sub">POS_DB connect honay ke baad live figure aayega</div></div>';
+          }).join("");
+          return;
+        }
+        var out = d.filter(function(i){ return statusOf(i) === "out"; }).length;
+        var crit = d.filter(function(i){ return statusOf(i) === "critical"; }).length;
+        var low = d.filter(function(i){ return statusOf(i) === "low"; }).length;
+        var sold = d.reduce(function(s,i){ return s + netSold(i, state.analysis); }, 0);
+        var est = d.filter(needsReorder).reduce(function(s,i){ return s + finalQty(i) * i.cost; }, 0);
+        var cards = [
+          { lab:"Total Items", val: fmt(d.length), sub:"catalogue" + (state.demo ? " (sample)" : ""), cls:"" },
+          { lab:"Out of Stock", val: out, sub:"usable stock khatam", cls: out ? "alert" : "" },
+          { lab:"Critical (≤ 3 din)", val: crit, sub:"stock khatam honay wala", cls: crit ? "alert" : "" },
+          { lab:"Low Stock", val: low, sub:"reorder level se neechay", cls: low ? "warn" : "" },
+          { lab:"Net Units Sold (" + state.analysis + " din)", val: fmt(sold), sub:"returns/cancelled hata kar", cls:"" },
+          { lab:"Est. Purchase Value", val: rs(est), sub: state.cover + " din cover ki suggestions", cls:"" }
+        ];
+        document.getElementById("kpis").innerHTML = cards.map(function(c){
+          return '<div class="kpi ' + c.cls + '"><div class="lab">' + c.lab + '</div><div class="val mono">' + c.val + '</div><div class="sub">' + c.sub + '</div></div>';
+        }).join("");
+      }
+
+      // ---------- Overview ----------
+      function renderDemand(){
+        var d = data();
+        var box = document.getElementById("demandChart");
+        if (!d.length){ box.innerHTML = emptyStateHTML(); return; }
+        var sorted = d.slice().sort(function(a,b){ return netSold(b, state.analysis) - netSold(a, state.analysis); }).slice(0, 10);
+        var max = netSold(sorted[0], state.analysis) || 1;
+        box.innerHTML = sorted.map(function(it, idx){
+          var q = netSold(it, state.analysis);
+          return '<div class="bar-row' + (idx < 3 ? " hot" : "") + '"><div class="nm">' + esc(it.name) + "<small>" + esc(it.pack) + " · " + esc(it.supplier) + '</small></div>' +
+            '<div class="track"><div class="fill" style="width:' + Math.max(3, (q / max) * 100) + '%"></div></div>' +
+            '<div class="qty mono">' + fmt(q) + " units</div></div>";
+        }).join("");
+      }
+      function renderAttention(){
+        var d = data();
+        var box = document.getElementById("attentionWrap");
+        if (!d.length){ box.innerHTML = emptyStateHTML(); return; }
+        var list = d.filter(function(i){ var s = statusOf(i); return s === "out" || s === "critical"; })
+          .sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+        box.innerHTML = '<ul class="mini-list">' + (list.length ? list.map(function(it){
+          return '<li><span class="chip ' + statusOf(it) + '">' + STATUS_LABEL[statusOf(it)] + '</span>' +
+            '<span class="grow"><span class="nm">' + esc(it.name) + '</span><br><span class="dt">' + esc(it.supplier) + " · usable stock " + fmt(usable(it)) + " · ADS " + ads30(it).toFixed(1) + "/din</span></span>" +
+            '<span class="mono" style="font-weight:700">' + daysText(it) + "</span></li>";
+        }).join("") : '<li class="empty-note">Sab items safe hain.</li>') + "</ul>";
+      }
+      function renderExpiry(){
+        var d = data();
+        var box = document.getElementById("expiryWrap");
+        if (!d.length){ box.innerHTML = emptyStateHTML(); return; }
+        var list = d.filter(function(i){ return i.expiry; }).sort(function(a,b){ return a.expiry.key - b.expiry.key; });
+        box.innerHTML = '<ul class="mini-list">' + list.map(function(it){
+          return '<li><span class="grow"><span class="nm">' + esc(it.name) + '</span><br><span class="dt">Batch ' + esc(it.expiry.batch) + " · " + fmt(it.expiry.qty) + ' units (usable mein shaamil nahi)</span></span>' +
+            '<span class="chip low">EXP ' + esc(it.expiry.date) + "</span></li>";
+        }).join("") + "</ul>";
+      }
+
+      // ---------- Reorder ----------
+      function calcDetailHTML(it){
+        var o = state.overrides[it.name];
+        var rows = [
+          ["Net sales (" + state.analysis + " din, returns hata kar)", fmt(netSold(it, state.analysis)) + " units"],
+          ["Analysis days", state.analysis + " din"],
+          ["ADS (net sales ÷ analysis days)", ads(it).toFixed(2) + " /din"],
+          ["Cover days (target)", state.cover + " din"],
+          ["Safety stock (ADS × " + state.safetyDays + " din)", fmt(safetyStock(it)) + " units"],
+          ["Target stock ((ADS × cover) + safety)", fmt(targetStock(it)) + " units"],
+          ["Total stock (POS)", fmt(it.stock) + " units"],
+          ["Unusable (expired / damaged)", "− " + fmt(it.unusable || 0) + " units"],
+          ["Usable stock", fmt(usable(it)) + " units"],
+          ["Confirmed incoming stock", "− " + fmt(it.incoming || 0) + " units"]
+        ];
+        var html = '<div class="calc-grid">' + rows.map(function(r){
+          return "<div><span>" + r[0] + '</span><span class="mono">' + r[1] + "</span></div>";
+        }).join("") + "</div>";
+        html += '<div class="calc-result mono">Suggested = max(0, ' + fmt(targetStock(it)) + " − " + fmt(usable(it)) + " − " + fmt(it.incoming || 0) + ") = <b>" + fmt(suggestedQty(it)) + " units</b></div>";
+        if (o){
+          html += '<p class="ovr-note">Manual override active: <b>' + fmt(o.qty) + ' units</b> — Reason: “' + esc(o.reason) + '” (audit trail mein record hai)</p>' +
+            '<div class="ovr-form"><button class="btn small danger" type="button" data-act="clear-ovr" data-name="' + esc(it.name) + '">Override Khatam Karein</button></div>';
+        } else {
+          html += '<div class="ovr-form">' +
+            '<input type="number" min="0" placeholder="Qty" value="' + suggestedQty(it) + '" id="ovr-qty-' + esc(it.name) + '" aria-label="Override quantity" />' +
+            '<input type="text" placeholder="Override ki wajah likhein (lazmi) — masalan: supplier ke paas pack size bara hai" id="ovr-reason-' + esc(it.name) + '" aria-label="Override reason" />' +
+            '<button class="btn small primary" type="button" data-act="save-ovr" data-name="' + esc(it.name) + '">Override Save Karein</button></div>';
+        }
+        return html;
+      }
+
+      function renderReorder(){
+        var d = data();
+        var tbody = document.querySelector("#reorderTable tbody");
+        var sumEl = document.getElementById("reorderSummary");
+        if (!d.length){
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">' + emptyStateHTML() + "</td></tr>";
+          sumEl.textContent = "";
+          return;
+        }
+        var rows = d.filter(needsReorder).sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+        var totalQty = 0, totalCost = 0;
+        var html = "";
+        rows.forEach(function(it){
+          var q = finalQty(it), c = q * it.cost;
+          totalQty += q; totalCost += c;
+          var o = state.overrides[it.name];
+          var inOrder = state.order[it.name] !== undefined;
+          html += "<tr>" +
+            '<td class="med-cell" data-label="Medicine"><span class="med">' + esc(it.name) + "<small>" + esc(it.pack) + '</small></span></td>' +
+            '<td data-label="Supplier">' + esc(it.supplier) + "</td>" +
+            '<td class="r mono" data-label="Usable Stock">' + fmt(usable(it)) + "</td>" +
+            '<td class="r mono" data-label="ADS">' + ads(it).toFixed(1) + "</td>" +
+            '<td class="r mono" data-label="Target">' + fmt(targetStock(it)) + "</td>" +
+            '<td class="r mono" data-label="Incoming">' + fmt(it.incoming || 0) + "</td>" +
+            '<td class="r sug" data-label="Order Qty"><span class="mono"><b>' + fmt(q) + "</b></span>" +
+              (o ? '<small>override · calc: ' + fmt(suggestedQty(it)) + '</small>' : '<small>stock chalega: ' + daysText(it) + "</small>") + "</td>" +
+            '<td class="r mono" data-label="Est. Cost">' + rs(c) + "</td>" +
+            '<td data-label=""><span style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:flex-end">' +
+              '<button class="btn small" type="button" data-act="calc" data-name="' + esc(it.name) + '">' + (state.openCalc[it.name] ? "▴ Calculation" : "▾ Calculation") + "</button>" +
+              '<button class="btn small ' + (inOrder ? "" : "primary") + '" type="button" data-act="add" data-name="' + esc(it.name) + '">' + (inOrder ? "✓ Draft mein hai" : "+ Draft") + "</button>" +
+            "</span></td></tr>";
+          if (state.openCalc[it.name]){
+            html += '<tr class="detail-row"><td colspan="9">' + calcDetailHTML(it) + "</td></tr>";
+          }
+        });
+        tbody.innerHTML = html || '<tr><td colspan="9" class="empty-cell"><p class="empty-note">Is cover setting par kisi item ki zaroorat nahi — sab ka usable stock target se zyada hai.</p></td></tr>';
+        sumEl.textContent = rows.length + " items · total " + fmt(totalQty) + " units · " + rs(totalCost);
+      }
+
+      function renderOrder(){
+        var body = document.getElementById("orderBody");
+        var dl = document.getElementById("downloadOrderBtn"), cl = document.getElementById("clearOrderBtn"), ap = document.getElementById("approveOrderBtn");
+        var totRow = document.getElementById("orderTotalRow");
+        var st = document.getElementById("orderStatus");
+        var names = Object.keys(state.order).filter(function(n){ return findItem(n); });
+        if (!names.length){
+          body.innerHTML = state.demo
+            ? '<p class="empty-note">Abhi koi item draft mein nahi. Upar table se “+ Draft” dabayein — order supplier ke hisab se khud group ho jayega.</p>'
+            : emptyStateHTML();
+          totRow.style.display = "none"; dl.disabled = true; cl.disabled = true; ap.disabled = true;
+          st.innerHTML = "Status: <b>Draft</b> — ye order abhi kahin nahi gaya. Quantities, rates aur supplier details check kar ke approve karein, phir file download kar ke supplier ko bhejein.";
+          return;
+        }
+        var groups = {}, total = 0;
+        names.forEach(function(n){
+          var it = findItem(n);
+          (groups[it.supplier] = groups[it.supplier] || []).push(it);
+        });
+        body.innerHTML = Object.keys(groups).sort().map(function(sup){
+          var items = groups[sup].map(function(it){
+            var q = state.order[it.name], c = q * it.cost; total += c;
+            var o = state.overrides[it.name];
+            return "<li>" + esc(it.name) + " (" + esc(it.pack) + ') — <span class="mono">' + fmt(q) + " units · " + rs(c) + "</span>" + (o ? ' <span class="chip ovr">OVERRIDE</span>' : "") + "</li>";
+          }).join("");
+          return '<div class="grp"><b>' + esc(sup) + "</b><ul>" + items + "</ul></div>";
+        }).join("");
+        document.getElementById("orderTotal").textContent = rs(total);
+        totRow.style.display = "flex"; dl.disabled = false; cl.disabled = false; ap.disabled = state.approved;
+        st.innerHTML = state.approved
+          ? "Status: <b>Approved ✓</b> — ab file download kar ke supplier ko bhejein. Approval audit trail mein record hai."
+          : "Status: <b>Draft</b> — ye order abhi kahin nahi gaya. Quantities, rates aur supplier details check kar ke approve karein, phir file download kar ke supplier ko bhejein.";
+      }
+
+      // ---------- All stock ----------
+      function renderStock(){
+        var d = data();
+        var tbody = document.querySelector("#stockTable tbody");
+        var emptyEl = document.getElementById("stockEmpty");
+        var stateEl = document.getElementById("stockEmptyState");
+        if (!d.length){
+          tbody.innerHTML = "";
+          emptyEl.style.display = "none";
+          stateEl.style.display = "block";
+          stateEl.innerHTML = emptyStateHTML();
+          return;
+        }
+        stateEl.style.display = "none";
+        var q = document.getElementById("stockSearch").value.trim().toLowerCase();
+        var sup = document.getElementById("supplierFilter").value;
+        var st = document.getElementById("statusFilter").value;
+        var rows = d.filter(function(it){
+          return (!q || it.name.toLowerCase().indexOf(q) > -1) &&
+                 (!sup || it.supplier === sup) &&
+                 (!st || statusOf(it) === st);
+        }).sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+        tbody.innerHTML = rows.map(function(it){
+          var s = statusOf(it);
+          return "<tr>" +
+            '<td class="med-cell" data-label="Medicine"><span class="med">' + esc(it.name) + "<small>" + esc(it.pack) + '</small></span></td>' +
+            '<td data-label="Supplier">' + esc(it.supplier) + "</td>" +
+            '<td class="r mono" data-label="Stock">' + fmt(it.stock) + "</td>" +
+            '<td class="r mono" data-label="Usable">' + fmt(usable(it)) + "</td>" +
+            '<td class="r mono" data-label="Net Sold (30 din)">' + fmt(it.net30) + "</td>" +
+            '<td data-label="Stock chalega">' + daysBar(it) + "</td>" +
+            '<td class="r mono" data-label="ReOrder / Max">' + fmt(it.reorder) + " / " + fmt(it.max) + "</td>" +
+            '<td data-label="Status"><span class="chip ' + s + '">' + STATUS_LABEL[s] + "</span></td></tr>";
+        }).join("");
+        emptyEl.style.display = rows.length ? "none" : "block";
+      }
+      function rebuildSupplierFilter(){
+        var sel = document.getElementById("supplierFilter");
+        var cur = sel.value;
+        sel.innerHTML = '<option value="">Sab Suppliers</option>';
+        var suppliers = [];
+        data().forEach(function(it){ if (suppliers.indexOf(it.supplier) === -1) suppliers.push(it.supplier); });
+        suppliers.sort().forEach(function(s){
+          var o = document.createElement("option"); o.value = s; o.textContent = s; sel.appendChild(o);
+        });
+        if (suppliers.indexOf(cur) > -1) sel.value = cur;
+      }
+
+      // ---------- Report ----------
+      function renderReport(){
+        var d = data();
+        var box = document.getElementById("reportBody");
+        if (!d.length){
+          box.innerHTML = emptyStateHTML() +
+            '<p style="font-size:13px; color:var(--ink3); margin-top:12px">Report structure (live data aanay par): Stock Position Summary · Urgent Purchases (stock ≤ 3 din) · Top Selling Items · Supplier-wise Suggested Purchases — har report par date aur data-refresh time likha hoga.</p>';
+          return;
+        }
+        var out = d.filter(function(i){ return statusOf(i) === "out"; }).length;
+        var crit = d.filter(function(i){ return statusOf(i) === "critical"; }).length;
+        var low = d.filter(function(i){ return statusOf(i) === "low"; }).length;
+        var est = d.filter(needsReorder).reduce(function(s,i){ return s + finalQty(i) * i.cost; }, 0);
+        var html = '<div class="sum">' +
+          "<div>Total Items<b class='mono'>" + d.length + "</b></div>" +
+          "<div>Out / Critical<b class='mono'>" + out + " / " + crit + "</b></div>" +
+          "<div>Low Stock<b class='mono'>" + low + "</b></div>" +
+          "<div>Est. Purchase<b class='mono'>" + rs(est) + "</b></div></div>";
+
+        var urgent = d.filter(function(i){ var s = statusOf(i); return s === "out" || s === "critical"; })
+          .sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+        html += "<h3>Urgent — Aaj Order Karein (usable stock ≤ 3 din)</h3>" +
+          '<table><thead><tr><th>Medicine</th><th>Supplier</th><th class="r">Usable</th><th class="r">ADS</th><th class="r">Order Qty</th><th class="r">Est. Cost</th></tr></thead><tbody>' +
+          (urgent.length ? urgent.map(function(it){
+            var q = finalQty(it);
+            var o = state.overrides[it.name];
+            return "<tr><td>" + esc(it.name) + (o ? " (override)" : "") + "</td><td>" + esc(it.supplier) + '</td><td class="r mono">' + fmt(usable(it)) +
+              '</td><td class="r mono">' + ads(it).toFixed(1) + '</td><td class="r mono">' + fmt(q) +
+              '</td><td class="r mono">' + rs(q * it.cost) + "</td></tr>";
+          }).join("") : '<tr><td colspan="6">Koi urgent item nahi.</td></tr>') + "</tbody></table>";
+
+        var top = d.slice().sort(function(a,b){ return b.net30 - a.net30; }).slice(0, 5);
+        html += "<h3>Top 5 Demanding Medicines (net, 30 din)</h3>" +
+          '<table><thead><tr><th>Medicine</th><th class="r">Units Sold</th><th class="r">Usable Stock</th><th class="r">Stock chalega</th></tr></thead><tbody>' +
+          top.map(function(it){
+            return "<tr><td>" + esc(it.name) + '</td><td class="r mono">' + fmt(it.net30) +
+              '</td><td class="r mono">' + fmt(usable(it)) + '</td><td class="r mono">' + daysText(it) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+
+        var groups = {};
+        d.filter(needsReorder).forEach(function(it){
+          var q = finalQty(it);
+          var g = groups[it.supplier] = groups[it.supplier] || { items:0, qty:0, cost:0 };
+          g.items++; g.qty += q; g.cost += q * it.cost;
+        });
+        html += "<h3>Suggested Orders — Supplier Wise Total</h3>" +
+          '<table><thead><tr><th>Supplier</th><th class="r">Items</th><th class="r">Total Qty</th><th class="r">Est. Cost</th></tr></thead><tbody>' +
+          Object.keys(groups).sort().map(function(sup){
+            var g = groups[sup];
+            return "<tr><td>" + esc(sup) + '</td><td class="r mono">' + g.items + '</td><td class="r mono">' + fmt(g.qty) +
+              '</td><td class="r mono">' + rs(g.cost) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+        box.innerHTML = html;
+      }
+
+      function renderAll(){
+        renderChrome(); renderKpis(); renderDemand(); renderAttention(); renderExpiry();
+        renderReorder(); renderOrder(); rebuildSupplierFilter(); renderStock(); renderReport(); renderAudit();
+      }
+
+      // ---------- Downloads (page jo file generate karti hai) ----------
+      function downloadFile(name, content, type){
+        var blob = new Blob([content], { type: type || "text/html;charset=utf-8" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+      }
+
+      document.getElementById("downloadOrderBtn").addEventListener("click", function(){
+        var names = Object.keys(state.order).filter(function(n){ return findItem(n); });
+        if (!names.length) return;
+        var groups = {}, total = 0;
+        names.forEach(function(n){
+          var it = findItem(n);
+          (groups[it.supplier] = groups[it.supplier] || []).push(it);
+        });
+        var rows = "";
+        Object.keys(groups).sort().forEach(function(sup){
+          rows += '<tr><td colspan="5" style="background:#eef2f0;font-weight:700">' + esc(sup) + "</td></tr>";
+          groups[sup].forEach(function(it){
+            var q = state.order[it.name], c = q * it.cost; total += c;
+            var o = state.overrides[it.name];
+            rows += "<tr><td>" + esc(it.name) + "</td><td>" + esc(it.pack) + '</td><td style="text-align:right">' + fmt(q) + '</td><td style="text-align:right">Rs ' + fmt(c) + "</td><td>" + (o ? "Override — " + esc(o.reason) : "Formula") + "</td></tr>";
+          });
+        });
+        var html = "<!doctype html><html><head><meta charset='utf-8'><title>Purchase Order — Draft</title><style>body{font-family:Arial,sans-serif;margin:32px;color:#14201c}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cbd5d1;padding:7px 9px;font-size:13px}h1{font-size:20px}</style></head><body>" +
+          "<h1>Purchase Order (Draft) — Pharma Purchase Assistant</h1><p>Date: Wed, 18 Nov 2026 · Status: " + (state.approved ? "Approved" : "Draft — review pending") + " · Analysis: " + state.analysis + " din · Cover: " + state.cover + " din · Safety: " + state.safetyDays + " din<br>Formula: Suggested = max(0, (ADS × Cover Days) + Safety Stock − Usable Stock − Confirmed Incoming), ADS = Net Sales ÷ Analysis Days. Source: SmilePOS POS_DB (read-only).</p>" +
+          "<table><tr><th style='text-align:left'>Medicine</th><th style='text-align:left'>Pack</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Est. Cost</th><th style='text-align:left'>Basis</th></tr>" + rows +
+          '<tr><td colspan="3" style="text-align:right;font-weight:700">Total</td><td style="text-align:right;font-weight:700">Rs ' + fmt(total) + '</td><td></td></tr></table>' +
+          "<p style='color:#666;font-size:12px'>Rates supplier se confirm karein — ye estimated purchase rates hain. Ye draft hai; bhejne ki zimmedari user ki hai.</p></body></html>";
+        downloadFile("Purchase-Order-Draft-18-Nov-2026.html", html);
+        logAudit("Purchase order draft file download ki gayi (" + names.length + " items, " + rs(total) + ").");
+        toast("Purchase order draft download ho gaya — browser mein khol kar print / PDF save karein.");
+      });
+      document.getElementById("clearOrderBtn").addEventListener("click", function(){
+        state.order = {}; state.approved = false; renderOrder();
+        toast("Draft saaf ho gaya.");
+      });
+      document.getElementById("approveOrderBtn").addEventListener("click", function(){
+        state.approved = true; renderOrder();
+        logAudit("Purchase order draft APPROVE kiya gaya (" + Object.keys(state.order).length + " items).");
+        toast("Draft approve ho gaya — ab file download kar ke supplier ko bhejein.");
+      });
+      document.getElementById("downloadReportBtn").addEventListener("click", function(){
+        var sheet = document.getElementById("reportSheet").innerHTML;
+        var html = "<!doctype html><html><head><meta charset='utf-8'><title>Daily Stock Report — 18 Nov 2026</title><style>body{font-family:Arial,sans-serif;margin:32px;color:#14201c}table{width:100%;border-collapse:collapse;margin-bottom:18px}th,td{border-bottom:1px solid #d5ddd9;padding:6px 8px;font-size:13px;text-align:left}.r{text-align:right}h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 6px}.sum{display:flex;gap:28px;flex-wrap:wrap}.sum div b{display:block;font-size:19px}.rhead{border-bottom:3px double #888;padding-bottom:10px;margin-bottom:14px}.foot{color:#777;font-size:12px;border-top:1px solid #ddd;padding-top:8px}.demoflag{background:#fdf0dc;color:#a35c05;padding:8px 12px;font-size:12px;font-weight:700;margin-bottom:12px}.empty-state{border:1.5px dashed #cbd5d1;padding:22px;text-align:center;color:#555}</style></head><body>" + sheet + "</body></html>";
+        downloadFile("Daily-Stock-Report-18-Nov-2026.html", html);
+        logAudit("Daily report download ki gayi.");
+        toast("Daily report download ho gayi — browser mein khol kar print / PDF save karein.");
+      });
+
+      // ---------- Reorder table actions (delegation) ----------
+      document.querySelector("#reorderTable tbody").addEventListener("click", function(e){
+        var btn = e.target.closest ? e.target.closest("[data-act]") : null;
+        if (!btn) return;
+        var name = btn.getAttribute("data-name");
+        var it = findItem(name);
+        if (!it) return;
+        var act = btn.getAttribute("data-act");
+        if (act === "calc"){
+          state.openCalc[name] = !state.openCalc[name];
+          renderReorder();
+        } else if (act === "add"){
+          if (state.order[name] !== undefined) delete state.order[name];
+          else state.order[name] = finalQty(it);
+          state.approved = false;
+          renderReorder(); renderOrder();
+        } else if (act === "save-ovr"){
+          var qEl = document.getElementById("ovr-qty-" + name);
+          var rEl = document.getElementById("ovr-reason-" + name);
+          var q = parseInt(qEl.value, 10);
+          var reason = (rEl.value || "").trim();
+          if (isNaN(q) || q < 0){ toast("Sahi quantity likhein (0 ya zyada)."); qEl.focus(); return; }
+          if (!reason){ toast("Override ke liye wajah (reason) likhna lazmi hai."); rEl.focus(); return; }
+          state.overrides[name] = { qty: q, reason: reason };
+          if (state.order[name] !== undefined) state.order[name] = q;
+          state.approved = false;
+          logAudit("Override: " + name + " — calculated " + fmt(suggestedQty(it)) + " → manual " + fmt(q) + " units. Reason: " + reason);
+          renderAll();
+          toast("Override save ho gaya aur audit trail mein record hai.");
+        } else if (act === "clear-ovr"){
+          var old = state.overrides[name];
+          delete state.overrides[name];
+          if (state.order[name] !== undefined) state.order[name] = suggestedQty(it);
+          state.approved = false;
+          logAudit("Override khatam: " + name + " (pehle " + fmt(old.qty) + " units tha) — wapas calculated " + fmt(suggestedQty(it)) + " units.");
+          renderAll();
+          toast("Override khatam — calculated quantity wapas lag gayi.");
+        }
+      });
+
+      // ---------- Tabs ----------
+      var tabs = document.querySelectorAll(".tab");
+      for (var t = 0; t < tabs.length; t++) tabs[t].addEventListener("click", function(){
+        for (var i = 0; i < tabs.length; i++) tabs[i].setAttribute("aria-selected", "false");
+        this.setAttribute("aria-selected", "true");
+        var panels = document.querySelectorAll(".panel");
+        for (var j = 0; j < panels.length; j++) panels[j].classList.remove("on");
+        document.getElementById("panel-" + this.getAttribute("data-tab")).classList.add("on");
+      });
+
+      // ---------- Segmented controls ----------
+      function syncSeg(attr, val){
+        var btns = document.querySelectorAll("[data-" + attr + "]");
+        for (var i = 0; i < btns.length; i++)
+          btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-" + attr) === String(val) ? "true" : "false");
+      }
+      var pBtns = document.querySelectorAll("[data-period]");
+      for (var p = 0; p < pBtns.length; p++) pBtns[p].addEventListener("click", function(){
+        state.analysis = parseInt(this.getAttribute("data-period"), 10);
+        syncSeg("period", state.analysis);
+        renderAll();
+        toast("Sales analysis ab " + state.analysis + " din par hai — ADS aur suggestions dobara calculate ho gayein.");
+      });
+      var cBtns = document.querySelectorAll("[data-cover]");
+      for (var c = 0; c < cBtns.length; c++) cBtns[c].addEventListener("click", function(){
+        state.cover = parseInt(this.getAttribute("data-cover"), 10);
+        syncSeg("cover", state.cover);
+        state.order = {}; state.approved = false;
+        renderAll();
+        toast("Suggestions " + state.cover + " din cover par dobara calculate ho gayein — draft dobara banayein.");
+      });
+
+      // ---------- Stock filters ----------
+      document.getElementById("stockSearch").addEventListener("input", renderStock);
+      document.getElementById("supplierFilter").addEventListener("change", renderStock);
+      document.getElementById("statusFilter").addEventListener("change", renderStock);
+
+      // ---------- Demo data on/off ----------
+      function setDemo(on, silent){
+        state.demo = on;
+        if (!on){
+          state.order = {}; state.overrides = {}; state.openCalc = {}; state.approved = false;
+          if (!silent) logAudit("Demo data OFF / REMOVE kiya gaya — sample rows, figures, draft aur overrides saaf. Ab sirf live data (POS_DB) dikhega.");
+        } else if (!silent){
+          logAudit("Demo data ON kiya gaya — sample data PREVIEW label ke saath wapas dikh raha hai.");
+        }
+        renderAll();
+      }
+      document.getElementById("demoToggle").addEventListener("change", function(){
+        setDemo(this.checked);
+        toast(this.checked ? "Demo data ON — sample data PREVIEW ke saath dikh raha hai." : "Demo data hata diya gaya — ab sirf live data dikhega, POS_DB connect honay ke baad.");
+      });
+      document.getElementById("removeDemoBtn").addEventListener("click", function(){
+        setDemo(false);
+        toast("Demo data remove ho gaya — ab sirf live data dikhega, POS_DB connect honay ke baad.");
+      });
+      document.getElementById("restoreDemoBtn").addEventListener("click", function(){
+        setDemo(true);
+        toast("Demo data wapas aa gaya (PREVIEW).");
+      });
+
+      // ---------- Settings ----------
+      document.getElementById("saveConnBtn").addEventListener("click", function(){
+        var srv = document.getElementById("cfgServer").value.trim();
+        var db = document.getElementById("cfgDb").value.trim();
+        logAudit("POS connection settings save huein: server “" + srv + "”, database “" + db + "” (read-only).");
+        toast("Connection settings save ho gayein — live version inhi se connect hoga.");
+      });
+      document.getElementById("testConnBtn").addEventListener("click", function(){
+        var box = document.getElementById("testResult");
+        box.className = "test-result show warnbox";
+        box.textContent = "Server se rabta ho raha hai… (GET /api/health)";
+        fetch("/api/health").then(function(r){
+          return r.json().then(function(j){
+            return { okStatus: r.ok, j: j || {} };
+          }, function(){ throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); });
+        }).then(function(res){
+          var j = res.j;
+          if (res.okStatus && j.ok){
+            box.className = "test-result show okbox";
+            box.textContent = "✓ Connection OK — Database: " + (j.database || "POS_DB") + " · Live items: " + (j.live_items != null ? j.live_items : "—") + " · Last fetch: " + (j.last_fetch || "—") + (j.message ? " · " + j.message : "");
+          } else {
+            box.className = "test-result show warnbox";
+            box.textContent = "✗ Connection masla — " + (j.message || j.error || "server ne ok nahi bheja") + " (Database: " + (j.database || "—") + ", live items: " + (j.live_items != null ? j.live_items : "—") + ", last fetch: " + (j.last_fetch || "—") + ")";
+          }
+        }).catch(function(err){
+          box.className = "test-result show warnbox";
+          box.textContent = "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.";
+        });
+      });
+      document.getElementById("saveCalcBtn").addEventListener("click", function(){
+        var v = parseInt(document.getElementById("cfgSafety").value, 10);
+        if (isNaN(v) || v < 0 || v > 30){ toast("Safety days 0 se 30 ke darmiyan rakhein."); return; }
+        state.safetyDays = v;
+        state.order = {}; state.approved = false;
+        logAudit("Calculation setting tabdeel: safety stock = ADS × " + v + " din. Suggestions dobara calculate huein.");
+        renderAll();
+        toast("Safety stock ab ADS × " + v + " din hai — suggestions update ho gayein.");
+      });
+
+      // ---------- Backup / Restore ----------
+      document.getElementById("backupBtn").addEventListener("click", function(){
+        var payload = {
+          app: "Pharma Purchase Assistant",
+          kind: "assistant-backup",
+          created: stampNow(),
+          settings: {
+            server: document.getElementById("cfgServer").value,
+            database: document.getElementById("cfgDb").value,
+            auth: document.getElementById("cfgAuth").value,
+            safetyDays: state.safetyDays,
+            analysisDays: state.analysis,
+            coverDays: state.cover
+          },
+          overrides: state.overrides,
+          audit: state.audit
+        };
+        downloadFile("Pharma-Purchase-Assistant-Backup.json", JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+        logAudit("Assistant data ki backup file download ki gayi (settings + overrides + audit).");
+        toast("Backup download ho gaya — is file ko mehfooz jagah rakhein.");
+      });
+      document.getElementById("restoreFile").addEventListener("change", function(){
+        var f = this.files && this.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function(){
+          try {
+            var obj = JSON.parse(reader.result);
+            if (!obj || obj.kind !== "assistant-backup") throw new Error("bad file");
+            if (obj.settings){
+              document.getElementById("cfgServer").value = obj.settings.server || document.getElementById("cfgServer").value;
+              document.getElementById("cfgDb").value = obj.settings.database || document.getElementById("cfgDb").value;
+              if (typeof obj.settings.safetyDays === "number"){ state.safetyDays = obj.settings.safetyDays; document.getElementById("cfgSafety").value = obj.settings.safetyDays; }
+              if (obj.settings.analysisDays){ state.analysis = obj.settings.analysisDays; syncSeg("period", state.analysis); }
+              if (obj.settings.coverDays){ state.cover = obj.settings.coverDays; syncSeg("cover", state.cover); }
+            }
+            state.overrides = obj.overrides || {};
+            state.audit = obj.audit || state.audit;
+            state.order = {}; state.approved = false;
+            logAudit("Backup restore ki gayi (file: " + f.name + ").");
+            renderAll();
+            toast("Backup restore ho gayi — settings aur overrides wapas lag gaye.");
+          } catch (err) {
+            toast("Ye file sahi backup nahi lagti — restore nahi hua.");
+          }
+        };
+        reader.readAsText(f);
+        this.value = "";
+      });
+
+      // ---------- Live data (local server API: /api/data · /api/health · /api/refresh) ----------
+      function showLiveError(msg){
+        document.getElementById("liveErrorMsg").textContent = msg;
+        document.getElementById("liveError").style.display = "";
+      }
+      function hideLiveError(){
+        document.getElementById("liveError").style.display = "none";
+      }
+      function fetchLiveData(){
+        return fetch("/api/data").then(function(r){
+          return r.json().then(function(j){
+            if (!r.ok || !j || !j.ok) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
+            return j;
+          }, function(){ throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); });
+        }).then(function(j){
+          if (!j.items || !j.items.length) throw new Error("Server ne live items nahi bheje (item_count: " + (j.item_count || 0) + ").");
+          state.liveItems = j.items;
+          state.liveFetchedAt = j.fetched_at || stampNow();
+          hideLiveError();
+          return j;
+        });
+      }
+      function loadLiveOnStart(){
+        fetchLiveData().then(function(j){
+          state.demo = false;
+          state.order = {}; state.overrides = {}; state.openCalc = {}; state.approved = false;
+          renderAll();
+          logAudit("Live data load hua — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
+          toast("Live data aa gaya — POS_DB se " + j.items.length + " items dikh rahe hain.");
+        }).catch(function(err){
+          showLiveError("Server se rabta nahi ho saka: " + err.message);
+        });
+      }
+
+      // ---------- Refresh ----------
+      document.getElementById("refreshBtn").addEventListener("click", function(){
+        var btn = this;
+        if (btn.classList.contains("spinning")) return;
+        btn.classList.add("spinning"); btn.disabled = true;
+        fetch("/api/refresh", { method: "POST" }).then(function(r){
+          return r.json().then(function(j){
+            if (!r.ok || !j || j.ok === false) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
+            return j;
+          }, function(){ throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); });
+        }).then(function(){
+          return fetchLiveData();
+        }).then(function(j){
+          state.demo = false;
+          renderAll();
+          toast("Live data refresh ho gaya — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
+        }).catch(function(err){
+          showLiveError("Refresh fail: " + err.message);
+          toast("Refresh fail — " + err.message + " Current data barqarar hai.");
+        }).then(function(){
+          btn.classList.remove("spinning"); btn.disabled = false;
+        });
+      });
+
+      renderAll();
+      loadLiveOnStart();
+    </script>
+  </body>
+</html>
