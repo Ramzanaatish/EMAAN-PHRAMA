@@ -209,3 +209,101 @@ def test_html_calls_the_api():
         assert url in html
     assert "liveBadge" in html
     assert "fetch(" in html
+
+
+class RecordingConnector(FakeConnector):
+    """FakeConnector that records the server it was built with."""
+
+    instances = []
+
+    def __init__(
+        self,
+        server=r"localhost\SQLEXPRESS",
+        database="POS_DB",
+        auth="windows",
+    ):
+        super().__init__()
+        self.server = server
+        self.database = database
+        self.auth = auth
+        RecordingConnector.instances.append(self)
+
+    def test_connection(self):
+        return f"Connected to {self.database} on {self.server} (test)"
+
+
+@pytest.fixture()
+def recording_client(store, tmp_path):
+    RecordingConnector.instances.clear()
+    html_path = tmp_path / "index.html"
+    html_path.write_text(
+        "<html><head><title>Pharma Purchase Assistant</title></head>"
+        "<body>dashboard</body></html>",
+        encoding="utf-8",
+    )
+    app = create_app(
+        store=store, html_path=html_path, connector_factory=RecordingConnector
+    )
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def test_get_settings_returns_defaults(client):
+    body = client.get("/api/settings").get_json()
+    assert body["ok"] is True
+    assert body["server"] == r"localhost\SQLEXPRESS"
+    assert body["database"] == "POS_DB"
+    assert body["auth"] == "windows"
+
+
+def test_save_settings_persists_server(client, store):
+    res = client.post("/api/settings", json={"server": r"192.168.1.10\SQLEXPRESS"})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True
+    assert body["server"] == r"192.168.1.10\SQLEXPRESS"
+    assert store.get_setting("server") == r"192.168.1.10\SQLEXPRESS"
+    assert client.get("/api/settings").get_json()["server"] == (
+        r"192.168.1.10\SQLEXPRESS"
+    )
+
+
+def test_save_settings_rejects_bad_server(client, store):
+    res = client.post("/api/settings", json={"server": "not a server!!"})
+    assert res.status_code == 400
+    assert res.get_json()["ok"] is False
+    assert store.get_setting("server") == r"localhost\SQLEXPRESS"
+
+
+def test_test_connection_uses_typed_server(recording_client):
+    res = recording_client.post(
+        "/api/test-connection", json={"server": r"DESKTOP-SJO68CG\SQLEXPRESS"}
+    )
+    body = res.get_json()
+    assert res.status_code == 200
+    assert body["ok"] is True
+    assert body["server"] == r"DESKTOP-SJO68CG\SQLEXPRESS"
+    assert RecordingConnector.instances[-1].server == (
+        r"DESKTOP-SJO68CG\SQLEXPRESS"
+    )
+
+
+def test_test_connection_rejects_bad_server(recording_client):
+    res = recording_client.post("/api/test-connection", json={"server": "bad server!!"})
+    assert res.status_code == 400
+    assert res.get_json()["ok"] is False
+    assert RecordingConnector.instances == []
+
+
+def test_data_uses_saved_server(recording_client):
+    recording_client.post("/api/settings", json={"server": r"192.168.1.10\SQLEXPRESS"})
+    body = recording_client.get("/api/data").get_json()
+    assert body["ok"] is True
+    assert body["item_count"] == 2
+    assert body["server"] == r"192.168.1.10\SQLEXPRESS"
+    assert RecordingConnector.instances[-1].server == r"192.168.1.10\SQLEXPRESS"
+
+
+def test_health_reports_server(client):
+    body = client.get("/api/health").get_json()
+    assert body["server"] == r"localhost\SQLEXPRESS"

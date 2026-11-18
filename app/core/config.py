@@ -8,6 +8,7 @@ between screens.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -39,3 +40,29 @@ def app_data_dir() -> Path:
 
 def default_db_path() -> Path:
     return app_data_dir() / "pharma_purchase.db"
+
+
+SERVER_ADDRESS_RE = re.compile(
+    r"^[A-Za-z0-9_.\-]+(\\[A-Za-z0-9_.\-#$]+)?(,\d{1,5})?$"
+)
+
+
+def validate_server_address(value: str) -> str:
+    """Validate a SQL Server address and return it stripped.
+
+    Accepts a server name or IP, with an optional instance
+    (SERVER\\INSTANCE) and/or port (SERVER,1433).
+    Raises ValueError when the address is empty or malformed.
+    """
+    cleaned = (value or "").strip()
+    if not cleaned:
+        raise ValueError("Server address is empty.")
+    if not SERVER_ADDRESS_RE.match(cleaned):
+        raise ValueError(
+            f"Invalid server address {cleaned!r}. Use SERVER, SERVER\\INSTANCE, "
+            "an IP, or a server with a port (SERVER,1433)."
+        )
+    port = cleaned.rsplit(",", 1)[-1] if "," in cleaned else ""
+    if port and not 1 <= int(port) <= 65535:
+        raise ValueError(f"Invalid port {port!r} in server address.")
+    return cleaned
