@@ -38,14 +38,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-      - name: Build app (PyInstaller folder mode)
-        run: pyinstaller --noconfirm --clean --windowed --name PharmaPurchaseAssistant run.py
+      - name: Build app (folder mode, logo bundled)
+        run: pyinstaller --noconfirm --clean --windowed --name PharmaPurchaseAssistant --add-data "assets;assets" run.py
       - name: Install Inno Setup
         run: choco install innosetup -y
       - name: Compile installer
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\pharma-purchase-assistant.iss
-      - name: Upload installer
+          $env:Path += ";C:\Program Files (x86)\Inno Setup 6"
+          iscc installer\pharma-purchase-assistant.iss
+      - name: Upload Setup exe
         uses: actions/upload-artifact@v4
         with:
           name: PharmaPurchaseAssistant-Setup
