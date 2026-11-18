@@ -1,0 +1,39 @@
+# Pharma Purchase Assistant
+# Windows desktop app (Python + PySide6) for pharmacy stock intelligence
+# and purchase planning. Reads SmilePOS (SQL Server POS_DB) read-only.
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Build / packaging
+build/
+dist/
+*.spec
+*.egg-info/
+
+# SQLite local data (created at runtime; never commit real data)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+local_data/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Test artefacts
+.pytest_cache/
+.coverage
+htmlcov/
