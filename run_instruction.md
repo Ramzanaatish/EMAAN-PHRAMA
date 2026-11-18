@@ -33,7 +33,7 @@ pip install -r requirements.txt
 .venv\Scripts\python -m pytest tests\ -q
 ```
 
-Expected: **55 passed**. If a test fails, do not deploy — send the output.
+Expected: **66 passed**. If a test fails, do not deploy — send the output.
 
 ## 4. Run the app
 
@@ -92,6 +92,38 @@ compile it. The installer puts the app in
 `C:\Program Files\Pharma Purchase Assistant\`. The app keeps its own data
 in `%LOCALAPPDATA%\PharmaPurchaseAssistant\data\pharma_purchase.db`.
 
+## 8. Live HTML dashboard (browser version)
+
+The same dashboard as a web page. A small local server (Flask) serves the
+page and fetches live POS_DB data for it — the page alone (opened as a
+file) still works, but only with demo data.
+
+Start it (in the project folder, after step 2 install):
+
+```bat
+.venv\Scripts\python server.py
+```
+
+Then open **http://localhost:8080/** in the browser. Use another port with
+`python server.py --port 8090` (then open http://localhost:8090/).
+
+How to tell live from demo:
+
+- Green **● LIVE — POS_DB se real data** badge + "Live — POS_DB Connected"
+  in the top strip = real POS_DB data.
+- Amber **● PREVIEW** badge = demo (sample) data.
+- A red error banner under the top strip = live data could not be fetched
+  (server/DB down, or the page opened as a file). The banner states the
+  reason; the page keeps showing demo data until live data works.
+
+- **↻ Refresh Data** fetches live data again from POS_DB (read-only).
+- **Settings → Test Connection** checks the POS_DB connection for real.
+- The server and the desktop app share the same local database file, so a
+  refresh in one shows up in the other.
+- Note: live items have no purchase cost yet (the import does not capture
+  the purchase rate), so the reorder "Est. Purchase" total is Rs 0 for
+  live items. The suggested quantities are still correct.
+
 ## Assumptions (3 lines)
 
 1. Same PC: helper + SmilePOS run on one Windows PC; server `localhost\SQLEXPRESS`, database `POS_DB`, Windows Authentication.
@@ -100,12 +132,18 @@ in `%LOCALAPPDATA%\PharmaPurchaseAssistant\data\pharma_purchase.db`.
 
 ## What was verified on the build machine (and what was NOT)
 
-- **Verified:** 55 pytest tests green (formula against the HTML figures,
-  cover 7/14/21/30, override + reason, demo on/off, read-only guard,
-  backup/restore, report totals, PDF/Excel generation, headless UI smoke
-  test with Qt offscreen).
+- **Verified:** 66 pytest tests green (55 desktop + 11 live-server tests:
+  formula against the HTML figures, cover 7/14/21/30, override + reason,
+  demo on/off, read-only guard, backup/restore, report totals, PDF/Excel
+  generation, headless UI smoke test with Qt offscreen, server endpoints
+  with a mocked database, and the HTML calling the right API URLs).
+- **Verified:** the live server runs and serves the dashboard at `/`
+  (HTTP 200); `/api/health`, `/api/data` and `/api/refresh` fail plainly
+  (HTTP 503 + clear error) when SQL Server is unreachable, instead of
+  silently showing demo data as live.
 - **NOT verified here (must be tested on the client PC):** the live SQL
   Server connection and a real data refresh (this VM has no SQL Server and
-  no ODBC driver), and the app running on a real Windows desktop. Run the
-  **Test Connection** button in the Setup Wizard first — if it succeeds,
-  the live path works.
+  no ODBC driver), the HTML showing live data in a real browser, and the
+  app running on a real Windows desktop. On the PC, start `server.py`,
+  open http://localhost:8080/ and look for the green LIVE badge; if the
+  badge stays on PREVIEW, read the red error banner for the reason.
