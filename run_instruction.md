@@ -33,7 +33,7 @@ pip install -r requirements.txt
 .venv\Scripts\python -m pytest tests\ -q
 ```
 
-Expected: **66 passed**. If a test fails, do not deploy — send the output.
+Expected: **97 passed**. If a test fails, do not deploy — send the output.
 
 ## 4. Run the app
 
@@ -46,8 +46,11 @@ First launch shows the **Setup Wizard** (3 pages):
 1. **Pharmacy Profile** — name is prefilled: `EMAN PHARMACY & VACCINE`.
    Press **Next**.
 2. **POS Connection** — Server `localhost\SQLEXPRESS`, Database `POS_DB`,
-   Authentication **Windows Authentication (read-only)**. Press
-   **Test Connection** — you should see a success line. Press **Next**.
+   Authentication **Windows Authentication (read-only)**. The server
+   address is checked as you type it (a server name or IP, with an
+   optional instance `SERVER\INSTANCE` or port `SERVER,1433`); a bad
+   address shows a warning and is not accepted. Press **Test Connection**
+   — you should see a success line. Press **Next**.
 3. **Initial Data** — leave **Demo (sample) data** ticked for now, press
    **Finish**. The dashboard opens with the sample data (labelled PREVIEW).
 
@@ -62,6 +65,13 @@ First launch shows the **Setup Wizard** (3 pages):
 4. If refresh fails, the error is shown plainly (server stopped, permission
    denied, or a missing column with the real column list). Fix the cause
    and press Refresh again.
+5. Change the server address any time in **Settings → Server address**
+   (for example `DESKTOP-SJO68CG\SQLEXPRESS`, or an IP such as
+   `192.168.1.10\SQLEXPRESS` if the POS runs on another PC). Save it, then
+   press **Test Connection** to check the typed address and **Refresh
+   Data** to fetch from it. The new address takes effect without a
+   restart — the desktop app and the Flask server both read the saved
+   address for every connection.
 
 ## 6. Daily use
 
@@ -84,13 +94,20 @@ First launch shows the **Setup Wizard** (3 pages):
 ```bat
 .venv\Scripts\activate
 pip install pyinstaller
-pyinstaller --noconfirm --clean --windowed --name PharmaPurchaseAssistant run.py
+pyinstaller --noconfirm --clean --windowed --name PharmaPurchaseAssistant --add-data "assets;assets" run.py
 ```
 
 Then open `installer\pharma-purchase-assistant.iss` in **Inno Setup 6** and
 compile it. The installer puts the app in
-`C:\Program Files\Pharma Purchase Assistant\`. The app keeps its own data
-in `%LOCALAPPDATA%\PharmaPurchaseAssistant\data\pharma_purchase.db`.
+`C:\Program Files\Pharma Purchase Assistant\` (with the EMAN logo in the
+header) and creates a Start Menu shortcut plus an uninstaller entry. The
+app keeps its own data in
+`%LOCALAPPDATA%\PharmaPurchaseAssistant\data\pharma_purchase.db`.
+
+You do not need to build the installer by hand: every push to `master`
+builds it on GitHub Actions (PyInstaller folder mode with the logo
+bundled via `--add-data "assets;assets"`, then Inno Setup) and uploads
+the Setup exe as the `PharmaPurchaseAssistant-Setup` artifact.
 
 ## 8. Live HTML dashboard (browser version)
 
@@ -118,6 +135,10 @@ How to tell live from demo:
 
 - **↻ Refresh Data** fetches live data again from POS_DB (read-only).
 - **Settings → Test Connection** checks the POS_DB connection for real.
+- **Settings → Server address** loads the saved address; Save posts it to
+  `/api/settings` and Test Connection posts the typed address to
+  `/api/test-connection`, so a changed address takes effect without
+  restarting the server.
 - The server and the desktop app share the same local database file, so a
   refresh in one shows up in the other.
 - Note: live items have no purchase cost yet (the import does not capture
@@ -132,11 +153,15 @@ How to tell live from demo:
 
 ## What was verified on the build machine (and what was NOT)
 
-- **Verified:** 66 pytest tests green (55 desktop + 11 live-server tests:
-  formula against the HTML figures, cover 7/14/21/30, override + reason,
-  demo on/off, read-only guard, backup/restore, report totals, PDF/Excel
-  generation, headless UI smoke test with Qt offscreen, server endpoints
-  with a mocked database, and the HTML calling the right API URLs).
+- **Verified:** 97 pytest tests green (55 desktop + 11 live-server + 7
+  server-address + 24 UI/config tests: formula against the HTML figures,
+  cover 7/14/21/30, override + reason, demo on/off, read-only guard,
+  backup/restore, report totals, PDF/Excel generation, headless UI smoke
+  test with Qt offscreen, server endpoints with a mocked database, the
+  HTML calling the right API URLs, server-address validation + saving +
+  Test Connection hitting the typed address, the light logo in the header,
+  the wordmark fallback when the logo file is missing, and no horizontal
+  overflow at 1000–1240px widths).
 - **Verified:** the live server runs and serves the dashboard at `/`
   (HTTP 200); `/api/health`, `/api/data` and `/api/refresh` fail plainly
   (HTTP 503 + clear error) when SQL Server is unreachable, instead of
@@ -147,3 +172,11 @@ How to tell live from demo:
   app running on a real Windows desktop. On the PC, start `server.py`,
   open http://localhost:8080/ and look for the green LIVE badge; if the
   badge stays on PREVIEW, read the red error banner for the reason.
+- **NOT verified here (needs the Windows CI run):** the GitHub Actions
+  installer build (PyInstaller folder mode + Inno Setup compile) — the
+  workflow is written and its YAML parses, but the Windows runner has not
+  run it yet. After the next push, check the Actions run is green and
+  download the `PharmaPurchaseAssistant-Setup` artifact; install it on
+  the PC and confirm the EMAN logo shows in the header (the CI bundles
+  `assets/` via `--add-data`, but the installed exe has not been checked
+  yet).
