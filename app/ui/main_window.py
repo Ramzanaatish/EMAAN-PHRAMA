@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -46,6 +47,8 @@ from ..core.config import (
     DEFAULT_COVER_DAYS,
     DEFAULT_SAFETY_DAYS,
     PHARMACY_NAME,
+    resource_path,
+    validate_server_address,
 )
 from ..core.errors import ConnectorError
 from ..services import (
@@ -186,9 +189,11 @@ class MainWindow(QMainWindow):
         self.conn_title = QLabel("Preview Mode — Not Connected")
         self.conn_title.setObjectName("connTitle")
         strip_layout.addWidget(self.conn_title)
-        strip_layout.addWidget(QLabel(f"Target Server  {self.store.get_setting('server')}"))
+        self.server_label = QLabel()
+        strip_layout.addWidget(self.server_label)
         strip_layout.addWidget(QLabel("|"))
-        strip_layout.addWidget(QLabel(f"Database  {self.store.get_setting('database')} (SmilePOS)"))
+        self.database_label = QLabel()
+        strip_layout.addWidget(self.database_label)
         strip_layout.addWidget(QLabel("|"))
         strip_layout.addWidget(QLabel("Access: Read-Only"))
         strip_layout.addStretch()
@@ -199,43 +204,76 @@ class MainWindow(QMainWindow):
         strip_layout.addWidget(self.refresh_button)
         root.addWidget(strip)
 
+        # Content scrolls vertically only; wide tables scroll inside
+        # themselves, so the window never grows a horizontal scrollbar.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.content_scroll = scroll
         root.addWidget(scroll)
+        outer = QWidget()
+        scroll.setWidget(outer)
+        outer_layout = QHBoxLayout(outer)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addStretch()
         content = QWidget()
-        scroll.setWidget(content)
+        content.setMaximumWidth(1320)
+        self.content_widget = content
+        outer_layout.addWidget(content)
+        outer_layout.addStretch()
         layout = QVBoxLayout(content)
         layout.setContentsMargins(16, 16, 16, 32)
 
-        # Header: title, pharmacy name, demo switch
-        header = QHBoxLayout()
+        # Header: pharmacy logo on dark green, app title, live/demo badge.
+        # The logo file carries the EMAN wordmark, so no separate name label.
+        header_bar = QFrame()
+        header_bar.setObjectName("headerBar")
+        header = QHBoxLayout(header_bar)
+        header.setContentsMargins(16, 12, 16, 12)
+        self.logo_path = resource_path("eman-logo-light.png")
+        self.header_logo = QLabel()
+        pixmap = QPixmap(str(self.logo_path))
+        if pixmap.isNull():
+            wordmark = QVBoxLayout()
+            name = QLabel("EMAN")
+            name.setObjectName("headerWordmark")
+            sub = QLabel("PHARMACY & VACCINE")
+            sub.setObjectName("headerWordmarkSub")
+            wordmark.addWidget(name)
+            wordmark.addWidget(sub)
+            header.addLayout(wordmark)
+        else:
+            self.header_logo.setPixmap(
+                pixmap.scaledToHeight(54, Qt.SmoothTransformation)
+            )
+            header.addWidget(self.header_logo)
         title_box = QVBoxLayout()
         title = QLabel("Pharma Purchase Assistant")
-        title.setObjectName("appTitle")
-        pharmacy = QLabel(PHARMACY_NAME)
-        pharmacy.setObjectName("pharmacyName")
+        title.setObjectName("headerTitle")
         subtitle = QLabel(
             "SmilePOS ke data se rozana ki purchasing guide: kaun si medicine sab se "
             "zyada bik rahi hai, kahan stock khatam honay wala hai, aur kis supplier "
             "se kitna order karna hai — har suggestion ke peeche poori calculation "
             "nazar aati hai."
         )
-        subtitle.setObjectName("subtitle")
+        subtitle.setObjectName("headerSubtitle")
         subtitle.setWordWrap(True)
         title_box.addWidget(title)
-        title_box.addWidget(pharmacy)
         title_box.addWidget(subtitle)
         header.addLayout(title_box, stretch=1)
 
         demo_box = QVBoxLayout()
         demo_row = QHBoxLayout()
-        demo_row.addWidget(QLabel("Demo Data"))
+        demo_label = QLabel("Demo Data")
+        demo_label.setObjectName("headerSubtitle")
+        demo_row.addWidget(demo_label)
         self.demo_toggle = QCheckBox()
         self.demo_toggle.setChecked(stock_service.is_demo(self.store))
         self.demo_toggle.toggled.connect(self._on_demo_toggled)
         demo_row.addWidget(self.demo_toggle)
         self.demo_state = QLabel("ON" if stock_service.is_demo(self.store) else "OFF")
+        self.demo_state.setObjectName("liveBadge")
         demo_row.addWidget(self.demo_state)
         demo_box.addLayout(demo_row)
         self.preview_badge = QLabel("● PREVIEW — sample data dikhaya ja raha hai")
@@ -245,10 +283,11 @@ class MainWindow(QMainWindow):
         demo_box.addWidget(self.preview_badge)
         demo_box.addWidget(self.demo_off_badge)
         header.addLayout(demo_box)
-        layout.addLayout(header)
+        layout.addWidget(header_bar)
 
         # KPI cards
         kpi_row = QHBoxLayout()
+        kpi_row.setSpacing(12)
         self.kpi_cards = {}
         for key, label in [
             ("total_items", "Total Items"),
@@ -288,14 +327,16 @@ class MainWindow(QMainWindow):
         later.setObjectName("laterCard")
         later_layout = QVBoxLayout(later)
         later_layout.addWidget(QLabel("Coming in v2 — Later  (Not in V1)"))
-        later_layout.addWidget(QLabel(
+        later_text = QLabel(
             "Version 1 mein ye kaam karta hai: Overview Dashboard, Reorder Suggestions, "
             "All Stock, Supplier-wise PO Draft, Daily Report (PDF/Excel) aur Settings / "
             "Backup / Audit. Neeche wali cheezein V1 se bahir hain: Goods Receiving (GRN), "
             "Invoice Matching, Payment & PO Lifecycle Tracking, Multi-Branch / Cloud "
             "Dashboard, Online Licensing, AI Prediction / Chatbot, More POS Connectors, "
             "Order Tracking."
-        ))
+        )
+        later_text.setWordWrap(True)
+        later_layout.addWidget(later_text)
         layout.addWidget(later)
         self.statusBar().showMessage("Ready")
 
@@ -360,6 +401,10 @@ class MainWindow(QMainWindow):
         self.demo_state.setText("ON" if demo else "OFF")
         self.preview_badge.setVisible(demo)
         self.demo_off_badge.setVisible(not demo)
+        self.server_label.setText(f"Target Server  {self.store.get_setting('server')}")
+        self.database_label.setText(
+            f"Database  {self.store.get_setting('database')} (SmilePOS)"
+        )
         self.conn_title.setText(
             "Preview Mode — Not Connected" if demo else "Not Connected — No Live Data"
         )
@@ -418,6 +463,7 @@ class MainWindow(QMainWindow):
         demand_layout.addWidget(hint)
         self.demand_list = QVBoxLayout()
         demand_layout.addLayout(self.demand_list)
+        demand_layout.addStretch()
         left.addWidget(demand_card)
 
         right = QVBoxLayout()
@@ -430,6 +476,7 @@ class MainWindow(QMainWindow):
         attention_layout.addWidget(attention_hint)
         self.attention_list = QVBoxLayout()
         attention_layout.addLayout(self.attention_list)
+        attention_layout.addStretch()
         right.addWidget(attention_card)
 
         expiry_card = QFrame()
@@ -441,6 +488,7 @@ class MainWindow(QMainWindow):
         expiry_layout.addWidget(expiry_hint)
         self.expiry_list = QVBoxLayout()
         expiry_layout.addLayout(self.expiry_list)
+        expiry_layout.addStretch()
         right.addWidget(expiry_card)
 
         layout.addLayout(left, stretch=3)
@@ -926,9 +974,11 @@ class MainWindow(QMainWindow):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         controls = QHBoxLayout()
-        controls.addWidget(QLabel(
+        report_intro = QLabel(
             "Rozana subah yahi report PDF ban kar ready milti hai — neechay usi ka preview hai."
-        ), stretch=1)
+        )
+        report_intro.setWordWrap(True)
+        controls.addWidget(report_intro, stretch=1)
         self.download_pdf_button = QPushButton("⬇ Download Daily Report (PDF)")
         self.download_pdf_button.setObjectName("primary")
         self.download_pdf_button.clicked.connect(self._on_download_pdf)
@@ -1016,6 +1066,7 @@ class MainWindow(QMainWindow):
         demo_buttons.addWidget(self.restore_demo_button)
         demo_buttons.addStretch()
         demo_layout.addLayout(demo_buttons)
+        demo_layout.addStretch()
         grid.addWidget(demo_card, 0, 0)
 
         conn_card = QFrame()
@@ -1057,6 +1108,7 @@ class MainWindow(QMainWindow):
         self.test_result.setObjectName("hint")
         self.test_result.setWordWrap(True)
         conn_layout.addWidget(self.test_result)
+        conn_layout.addStretch()
         grid.addWidget(conn_card, 0, 1)
 
         calc_card = QFrame()
@@ -1089,6 +1141,7 @@ class MainWindow(QMainWindow):
         calc_note.setObjectName("hint")
         calc_note.setWordWrap(True)
         calc_layout.addWidget(calc_note)
+        calc_layout.addStretch()
         grid.addWidget(calc_card, 1, 0)
 
         backup_card = QFrame()
@@ -1120,6 +1173,7 @@ class MainWindow(QMainWindow):
         backup_note.setObjectName("hint")
         backup_note.setWordWrap(True)
         backup_layout.addWidget(backup_note)
+        backup_layout.addStretch()
         grid.addWidget(backup_card, 1, 1)
 
         layout.addLayout(grid)
@@ -1162,10 +1216,18 @@ class MainWindow(QMainWindow):
             )
 
     def _on_save_connection(self) -> None:
-        server = self.cfg_server.text().strip()
+        try:
+            server = validate_server_address(self.cfg_server.text())
+        except ValueError as exc:
+            QMessageBox.warning(
+                self, "Server address ghalat hai",
+                f"{exc}\n\nAccepted forms: SERVER, SERVER\\INSTANCE, IP, "
+                "ya SERVER,port — masalan localhost\\SQLEXPRESS.",
+            )
+            return
         database = self.cfg_db.text().strip()
-        if not server or not database:
-            QMessageBox.warning(self, "Missing value", "Server aur database dono lazmi hain.")
+        if not database:
+            QMessageBox.warning(self, "Missing value", "Database lazmi hai.")
             return
         self.store.set_setting("server", server)
         self.store.set_setting("database", database)
@@ -1179,8 +1241,17 @@ class MainWindow(QMainWindow):
 
     def _on_test_connection(self) -> None:
         try:
+            server = validate_server_address(self.cfg_server.text())
+        except ValueError as exc:
+            QMessageBox.warning(
+                self, "Server address ghalat hai",
+                f"{exc}\n\nAccepted forms: SERVER, SERVER\\INSTANCE, IP, "
+                "ya SERVER,port — masalan localhost\\SQLEXPRESS.",
+            )
+            return
+        try:
             connector = SqlServerConnector(
-                server=self.cfg_server.text().strip(),
+                server=server,
                 database=self.cfg_db.text().strip(),
                 auth=self.cfg_auth.currentData(),
             )

@@ -42,6 +42,13 @@ def default_db_path() -> Path:
     return app_data_dir() / "pharma_purchase.db"
 
 
+def resource_path(filename: str) -> Path:
+    """Path to a bundled asset, from source or a PyInstaller build."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "assets" / filename
+    return Path(__file__).resolve().parents[2] / "assets" / filename
+
+
 SERVER_ADDRESS_RE = re.compile(
     r"^[A-Za-z0-9_.\-]+(\\[A-Za-z0-9_.\-#$]+)?(,\d{1,5})?$"
 )

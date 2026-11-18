@@ -21,7 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from ..connectors.sql_server import SqlServerConnector
-from ..core.config import DEFAULT_DATABASE, DEFAULT_SERVER, PHARMACY_NAME
+from ..core.config import (
+    DEFAULT_DATABASE,
+    DEFAULT_SERVER,
+    PHARMACY_NAME,
+    validate_server_address,
+)
 from ..core.errors import ConnectorError
 from ..services import import_service
 
@@ -76,8 +81,13 @@ class _ConnectionPage(QWizardPage):
 
     def _test_connection(self):
         try:
+            server = validate_server_address(self.server_edit.text())
+        except ValueError as exc:
+            self.test_label.setText(f"{exc}")
+            return
+        try:
             connector = SqlServerConnector(
-                server=self.server_edit.text().strip(),
+                server=server,
                 database=self.db_edit.text().strip(),
                 auth=self.auth_combo.currentData(),
             )
@@ -86,10 +96,18 @@ class _ConnectionPage(QWizardPage):
             self.test_label.setText(f"Connection fail hua: {exc}")
 
     def validatePage(self) -> bool:
-        server = self.server_edit.text().strip()
+        try:
+            server = validate_server_address(self.server_edit.text())
+        except ValueError as exc:
+            QMessageBox.warning(
+                self, "Server address ghalat hai",
+                f"{exc}\n\nAccepted forms: SERVER, SERVER\\INSTANCE, IP, "
+                "ya SERVER,port — masalan localhost\\SQLEXPRESS.",
+            )
+            return False
         database = self.db_edit.text().strip()
-        if not server or not database:
-            QMessageBox.warning(self, "Missing value", "Server aur database dono lazmi hain.")
+        if not database:
+            QMessageBox.warning(self, "Missing value", "Database lazmi hai.")
             return False
         self.store.set_setting("server", server)
         self.store.set_setting("database", database)

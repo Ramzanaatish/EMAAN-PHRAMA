@@ -5,12 +5,17 @@ from __future__ import annotations
 STYLESHEET = """
 QMainWindow { background: #f4f6f5; }
 QWidget { font-family: "Segoe UI", "Manrope", sans-serif; font-size: 14px; color: #14201c; }
-QLabel#appTitle { font-size: 26px; font-weight: 800; }
-QLabel#pharmacyName { font-size: 14px; font-weight: 700; color: #0b6e5d; }
-QLabel#subtitle { font-size: 13px; color: #43554e; }
 QFrame#connStrip { background: #084f43; border: none; }
 QFrame#connStrip QLabel { color: #eafff8; font-size: 13px; }
 QFrame#connStrip QLabel#connTitle { font-weight: 800; }
+QFrame#headerBar { background: #084f43; border: none; border-radius: 12px; }
+QFrame#headerBar QLabel#headerTitle { font-size: 22px; font-weight: 800; color: #ffffff; }
+QFrame#headerBar QLabel#headerSubtitle { font-size: 13px; color: #cdeee2; }
+QFrame#headerBar QLabel#headerWordmark { font-size: 22px; font-weight: 800; color: #ffffff; }
+QFrame#headerBar QLabel#headerWordmarkSub { font-size: 11px; font-weight: 700; color: #8fd6bd; }
+QLabel#liveBadge { background: #0b6e5d; color: #eafff8; border: 1px solid #2a9d84;
+    border-radius: 10px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+QScrollArea { border: none; }
 QFrame#card { background: #ffffff; border: 1px solid #dde5e1; border-radius: 12px; }
 QFrame#card QLabel#cardTitle { font-size: 16px; font-weight: 800; }
 QLabel#hint { font-size: 13px; color: #43554e; }
@@ -18,6 +23,8 @@ QPushButton { border: 1px solid #dde5e1; background: #ffffff; border-radius: 8px
     padding: 7px 14px; font-weight: 600; font-size: 13px; }
 QPushButton:hover { border-color: #0b6e5d; }
 QPushButton#primary { background: #0b6e5d; border-color: #0b6e5d; color: #ffffff; }
+QPushButton#primary:hover { background: #0a5c4e; border-color: #0a5c4e; }
+QPushButton#primary:disabled { background: #9aa8a2; border-color: #9aa8a2; color: #ffffff; }
 QPushButton#danger { border-color: #c22e2e; color: #c22e2e; }
 QPushButton:disabled { color: #9aa8a2; }
 QTabWidget::pane { border: none; background: transparent; }

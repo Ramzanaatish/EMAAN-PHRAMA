@@ -90,3 +90,72 @@ def test_wizard_prefills_pharmacy_and_server(tmp_path, qt_app):
     assert wizard.connection_page.server_edit.text() == r"localhost\SQLEXPRESS"
     assert wizard.connection_page.db_edit.text() == "POS_DB"
     assert wizard.data_page.demo_check.isChecked()
+
+
+def test_header_shows_light_logo(window):
+    assert window.logo_path.name == "eman-logo-light.png"
+    pixmap = window.header_logo.pixmap()
+    assert pixmap is not None and not pixmap.isNull()
+    assert pixmap.height() == 54
+
+
+def test_header_falls_back_to_wordmark_without_logo(tmp_path, qt_app, monkeypatch):
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QLabel
+
+    monkeypatch.setattr(
+        "app.ui.main_window.resource_path", lambda name: Path("/no-such-dir") / name
+    )
+    store = ensure_store(tmp_path / "fallback.db")
+    seed_demo_data(store)
+    win = MainWindow(store)
+    win.show()
+    assert win.header_logo.pixmap().isNull()
+    wordmark = win.findChild(QLabel, "headerWordmark")
+    assert wordmark is not None and wordmark.text() == "EMAN"
+
+
+def test_content_never_scrolls_horizontally(window):
+    assert window.content_scroll.horizontalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
+    assert window.content_widget.maximumWidth() == 1320
+
+
+def test_save_connection_rejects_bad_server(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.ui.main_window.QMessageBox.warning", lambda *args: calls.append(args)
+    )
+    window.cfg_server.setText("not a server!!")
+    window._on_save_connection()
+    assert calls and "SERVER\\INSTANCE" in calls[0][2]
+    assert window.store.get_setting("server") == r"localhost\SQLEXPRESS"
+
+
+def test_save_connection_accepts_instance_and_updates_strip(window):
+    window.cfg_server.setText(r"DBHOST\SQL2019")
+    window._on_save_connection()
+    assert window.store.get_setting("server") == r"DBHOST\SQL2019"
+    assert "DBHOST\\SQL2019" in window.server_label.text()
+
+
+def test_test_connection_rejects_bad_server(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.ui.main_window.QMessageBox.warning", lambda *args: calls.append(args)
+    )
+    window.cfg_server.setText("bad!!")
+    window._on_test_connection()
+    assert calls and "SERVER\\INSTANCE" in calls[0][2]
+    assert window.test_result.text() == ""
+
+
+def test_wizard_rejects_bad_server(tmp_path, qt_app, monkeypatch):
+    store = ensure_store(tmp_path / "wizard-bad.db")
+    wizard = SetupWizard(store)
+    monkeypatch.setattr("app.ui.wizard.QMessageBox.warning", lambda *args: None)
+    wizard.connection_page.server_edit.setText("bad server!!")
+    assert wizard.connection_page.validatePage() is False
+    assert store.get_setting("server") == r"localhost\SQLEXPRESS"
+    wizard.connection_page._test_connection()
+    assert "SERVER\\INSTANCE" in wizard.connection_page.test_label.text()
