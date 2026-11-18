@@ -13,60 +13,79 @@
       button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
       * { box-sizing: border-box; }
       :root{
-        --bg:#f4f6f5; --surface:#ffffff; --surface2:#eef2f0; --ink:#14201c; --ink2:#43554e; --ink3:#71827a;
-        --line:#dde5e1; --teal:#0b6e5d; --teal-soft:#e2f1ec; --teal-ink:#084f43;
+        --bg:#eef2f0; --surface:#ffffff; --surface2:#eef2f0; --ink:#14201c; --ink2:#43554e; --ink3:#71827a;
+        --line:#dde5e1; --teal:#0b6e5d; --teal-dark:#084f43; --teal-soft:#e2f1ec; --teal-ink:#084f43;
+        --header-bg:#07382e; --header-bg2:#0a4a3c; --header-ink:#eafff8; --header-sub:#a9cfc4;
         --red:#c22e2e; --red-soft:#fbe9e7; --amber:#a35c05; --amber-soft:#fdf0dc; --green:#1d7a3a; --green-soft:#e5f3e8;
-        --sheet:#ffffff; --shadow:0 1px 2px rgba(16,40,33,.06),0 8px 24px -12px rgba(16,40,33,.18);
+        --sheet:#ffffff; --shadow:0 1px 2px rgba(16,40,33,.05),0 10px 28px -14px rgba(16,40,33,.16);
         --radius:14px;
       }
       @media (prefers-color-scheme: dark){
         :root{
-          --bg:#0d1311; --surface:#151d1a; --surface2:#1b2622; --ink:#e7efec; --ink2:#a9bcb4; --ink3:#7e9188;
-          --line:#26332e; --teal:#2fbfa4; --teal-soft:#123129; --teal-ink:#8fe3cf;
+          --bg:#0b100e; --surface:#151d1a; --surface2:#1b2622; --ink:#e7efec; --ink2:#a9bcb4; --ink3:#7e9188;
+          --line:#26332e; --teal:#2fbfa4; --teal-dark:#0a2a23; --teal-soft:#123129; --teal-ink:#8fe3cf;
+          --header-bg:#06231c; --header-bg2:#0a2f26; --header-ink:#eafff8; --header-sub:#8fb8ab;
           --red:#f0837c; --red-soft:#3a1d1b; --amber:#eda93f; --amber-soft:#38290f; --green:#5cc97e; --green-soft:#14301d;
-          --sheet:#171f1c; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.5);
+          --sheet:#171f1c; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.55);
         }
       }
-      html{ -webkit-text-size-adjust:100%; }
-      body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Manrope",system-ui,sans-serif; font-size:15px; line-height:1.5; }
+      html{ -webkit-text-size-adjust:100%; overflow-x:clip; }
+      body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Manrope",system-ui,sans-serif; font-size:15px; line-height:1.5; overflow-x:clip; }
       .mono{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; }
-      .wrap{ max-width:1180px; margin:0 auto; padding:0 16px 64px; }
+      .wrap{ width:100%; max-width:1280px; margin:0 auto; padding:20px 20px 56px; min-width:0; }
 
-      /* ---------- connection strip ---------- */
-      .conn{ background:var(--teal-ink); color:#eafff8; margin:0 -16px; padding:14px 16px; }
-      @media (prefers-color-scheme: dark){ .conn{ background:#0a2a23; } }
-      .conn-in{ max-width:1180px; margin:0 auto; display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center; }
-      .conn .dot{ width:9px; height:9px; border-radius:50%; background:#f5b83d; box-shadow:0 0 0 4px rgba(245,184,61,.22); display:inline-block; margin-right:8px; }
-      .conn b{ font-weight:800; letter-spacing:.01em; }
-      .conn .sep{ opacity:.45; }
-      .conn .item{ font-size:13px; white-space:nowrap; }
-      .conn .grow{ flex:1; }
-      .btn{ appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+      /* ---------- app header ---------- */
+      .site-header{ background:linear-gradient(120deg,var(--header-bg) 0%,var(--header-bg2) 100%); color:var(--header-ink); box-shadow:0 6px 24px -10px rgba(4,32,26,.55); }
+      .header-in{ width:100%; max-width:1280px; margin:0 auto; padding:14px 20px 12px; }
+      .header-main{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; }
+      .brand{ display:flex; align-items:center; gap:14px; min-width:0; flex:1 1 340px; }
+      .brand-logo{ display:inline-flex; align-items:center; flex:none; }
+      .brand-logo svg{ height:46px; width:auto; display:block; }
+      .brand-div{ width:1px; align-self:stretch; background:rgba(255,255,255,.22); flex:none; }
+      .brand-app{ min-width:0; }
+      .brand-app h1{ font-size:16.5px; margin:0; font-weight:800; letter-spacing:-.01em; line-height:1.2; color:#fff; white-space:nowrap; }
+      .brand-app small{ display:block; font-size:12px; color:var(--header-sub); font-weight:600; margin-top:1px; }
+      .header-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-left:auto; }
+      .header-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.14); font-size:12.5px; color:var(--header-sub); }
+      .header-meta .dot{ width:8px; height:8px; border-radius:50%; background:#f5b83d; box-shadow:0 0 0 4px rgba(245,184,61,.20); display:inline-block; margin-right:7px; flex:none; }
+      .header-meta b{ color:var(--header-ink); font-weight:800; }
+      .header-meta .mono{ color:var(--header-ink); }
+      .header-meta .sep{ opacity:.4; }
+      .header-meta .grow{ flex:1; }
+      .hm-item{ display:inline-flex; align-items:center; white-space:nowrap; }
+      @media (max-width:560px){ .hm-item{ white-space:normal; } .brand-app h1{ white-space:normal; } .brand-logo svg{ height:40px; } }
+
+      .btn{ appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:border-color .15s, background .15s, box-shadow .15s; }
       .btn:hover{ border-color:var(--teal); }
+      .btn:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
       .btn.primary{ background:var(--teal); border-color:var(--teal); color:#fff; }
-      @media (prefers-color-scheme: dark){ .btn.primary{ color:#06231c; } }
+      .btn.primary:hover{ background:var(--teal-dark); border-color:var(--teal-dark); }
+      @media (prefers-color-scheme: dark){ .btn.primary{ color:#06231c; } .btn.primary:hover{ color:#06231c; } }
       .btn.danger{ border-color:var(--red); color:var(--red); }
       .btn.danger:hover{ background:var(--red-soft); }
       .btn.small{ padding:5px 11px; font-size:12.5px; min-height:2rem; border-radius:8px; }
-      .btn.ghostlight{ background:transparent; border-color:rgba(255,255,255,.4); color:#eafff8; }
+      .btn.ghostlight{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.45); color:#eafff8; }
+      .btn.ghostlight:hover{ background:rgba(255,255,255,.16); border-color:#fff; }
       .btn[disabled]{ opacity:.55; cursor:default; }
-      .spin{ width:14px; height:14px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; display:none; }
+      .spin{ width:14px; height:14px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; display:none; flex:none; }
       .spinning .spin{ display:inline-block; animation:rot .7s linear infinite; }
       @keyframes rot{ to{ transform:rotate(360deg); } }
-      @media (prefers-reduced-motion: reduce){ .spinning .spin{ animation:none; } }
+      @media (prefers-reduced-motion: reduce){ .spinning .spin{ animation:none; } .btn{ transition:none; } }
 
-      /* ---------- head ---------- */
-      .head{ padding:26px 0 6px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 18px; }
-      .head h1{ font-size:clamp(24px,4.5vw,34px); margin:0; font-weight:800; letter-spacing:-.02em; line-height:1.15; }
-      .head p{ margin:4px 0 0; color:var(--ink2); max-width:62ch; }
+      /* ---------- intro row ---------- */
+      .head{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px; margin-bottom:4px; }
+      .head p{ margin:0; color:var(--ink2); max-width:74ch; font-size:14px; flex:1 1 340px; min-width:0; }
       .demo-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-soft); color:var(--amber); border:1px solid currentColor; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+      .site-header .demo-badge{ background:rgba(253,240,220,.14); color:#f7cd8a; }
       .demo-off-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--surface2); color:var(--ink2); border:1px solid var(--line); font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+      .site-header .demo-off-badge{ background:rgba(255,255,255,.10); color:var(--header-sub); border-color:rgba(255,255,255,.3); }
       .live-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--green-soft); color:var(--green); border:1px solid currentColor; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
-      .live-error{ margin:16px 0 0; }
-      .live-error .box{ background:var(--red-soft); color:var(--red); border:1px solid var(--red); border-radius:12px; padding:12px 16px; font-size:14px; }
+      .site-header .live-badge{ background:rgba(92,201,126,.16); color:#7fe0a0; }
+      .live-error{ margin:0 0 16px; }
+      .live-error .box{ background:var(--red-soft); color:var(--red); border:1px solid var(--red); border-radius:12px; padding:12px 16px; font-size:14px; overflow-wrap:break-word; }
 
       /* demo data switch */
-      .demo-ctl{ display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:9px 13px; box-shadow:var(--shadow); }
+      .demo-ctl{ display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 13px; box-shadow:var(--shadow); flex:none; margin-left:auto; }
       .demo-ctl .lab{ font-size:13px; font-weight:800; }
       .demo-ctl .st{ font-size:12px; font-weight:700; color:var(--ink3); min-width:26px; }
       .switch{ position:relative; display:inline-block; flex:none; }
@@ -78,41 +97,46 @@
       @media (prefers-reduced-motion: reduce){ .switch input, .switch input::after{ transition:none; } }
 
       /* ---------- KPI ---------- */
-      .kpis{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:20px 0 8px; }
-      @media (min-width:760px){ .kpis{ grid-template-columns:repeat(3,1fr); } }
-      @media (min-width:1020px){ .kpis{ grid-template-columns:repeat(6,1fr); } }
-      .kpi{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 15px; box-shadow:var(--shadow); }
+      .kpis{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0 4px; }
+      @media (min-width:760px){ .kpis{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+      @media (min-width:1020px){ .kpis{ grid-template-columns:repeat(6,minmax(0,1fr)); } }
+      .kpi{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 15px; box-shadow:var(--shadow); min-width:0; }
       .kpi .lab{ font-size:11.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink3); }
-      .kpi .val{ font-size:26px; font-weight:800; letter-spacing:-.01em; margin-top:3px; }
+      .kpi .val{ font-size:clamp(21px,2vw,26px); font-weight:800; letter-spacing:-.01em; margin-top:3px; overflow-wrap:break-word; }
       .kpi .sub{ font-size:12.5px; color:var(--ink2); margin-top:1px; }
       .kpi.alert .val{ color:var(--red); } .kpi.warn .val{ color:var(--amber); }
 
       /* ---------- tabs ---------- */
-      .tabs{ display:flex; flex-wrap:wrap; gap:6px; margin:22px 0 18px; border-bottom:1px solid var(--line); }
-      .tab{ appearance:none; border:0; background:none; color:var(--ink2); font:700 14.5px "Manrope",sans-serif; padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; min-height:2.75rem; }
-      .tab[aria-selected="true"]{ color:var(--teal-ink); border-bottom-color:var(--teal); }
-      .panel{ display:none; } .panel.on{ display:block; }
+      .tabs{ display:flex; flex-wrap:wrap; gap:4px; margin:18px 0; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:5px; box-shadow:var(--shadow); }
+      .tab{ appearance:none; border:0; background:none; color:var(--ink2); font:700 14px "Manrope",sans-serif; padding:9px 15px; cursor:pointer; border-radius:8px; white-space:nowrap; min-height:2.6rem; transition:background .15s, color .15s; }
+      .tab:hover{ background:var(--surface2); color:var(--ink); }
+      .tab:focus-visible{ outline:2px solid var(--teal); outline-offset:1px; }
+      .tab[aria-selected="true"]{ background:var(--teal); color:#fff; }
+      @media (prefers-color-scheme: dark){ .tab[aria-selected="true"]{ color:#06231c; } }
+      @media (prefers-reduced-motion: reduce){ .tab{ transition:none; } }
+      .panel{ display:none; min-width:0; } .panel.on{ display:block; }
 
-      .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; }
+      .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; min-width:0; }
       .card h2{ font-size:17px; margin:0 0 4px; font-weight:800; letter-spacing:-.01em; }
       .card .hint{ color:var(--ink2); font-size:13.5px; margin:0 0 14px; }
-      .grid2{ display:grid; gap:16px; } @media (min-width:900px){ .grid2{ grid-template-columns:1.35fr 1fr; } }
-      .grid2eq{ display:grid; gap:16px; } @media (min-width:900px){ .grid2eq{ grid-template-columns:1fr 1fr; } }
+      .grid2{ display:grid; gap:16px; min-width:0; } @media (min-width:900px){ .grid2{ grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); } }
+      .grid2eq{ display:grid; gap:16px; min-width:0; } @media (min-width:900px){ .grid2eq{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+      .grid2 > *, .grid2eq > *{ min-width:0; }
 
       /* segmented control */
-      .seg{ display:inline-flex; background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px; }
+      .seg{ display:inline-flex; flex-wrap:wrap; background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px; }
       .seg button{ appearance:none; border:0; background:none; font:700 13px "Manrope",sans-serif; color:var(--ink2); padding:6px 13px; border-radius:8px; cursor:pointer; min-height:2rem; }
       .seg button[aria-pressed="true"]{ background:var(--surface); color:var(--teal-ink); box-shadow:0 1px 3px rgba(0,0,0,.14); }
-      .rowflex{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+      .rowflex{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; min-width:0; }
       .rowflex .grow{ flex:1; }
       .ctl-lab{ font-weight:700; font-size:13.5px; }
 
       /* demand bars */
-      .bar-row{ display:grid; grid-template-columns:minmax(120px,190px) 1fr 74px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); }
+      .bar-row{ display:grid; grid-template-columns:minmax(110px,190px) minmax(0,1fr) 74px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); }
       .bar-row:last-child{ border-bottom:0; }
-      .bar-row .nm{ font-weight:600; font-size:13.5px; line-height:1.3; }
+      .bar-row .nm{ font-weight:600; font-size:13.5px; line-height:1.3; min-width:0; overflow-wrap:break-word; }
       .bar-row .nm small{ display:block; color:var(--ink3); font-weight:500; font-size:12px; }
-      .track{ background:var(--surface2); border-radius:6px; height:16px; overflow:hidden; }
+      .track{ background:var(--surface2); border-radius:6px; height:16px; overflow:hidden; min-width:0; }
       .fill{ height:100%; background:var(--teal); border-radius:6px; min-width:3px; }
       .bar-row.hot .fill{ background:var(--red); }
       .bar-row .qty{ text-align:right; font-size:13px; }
@@ -125,13 +149,13 @@
       .chip.ovr{ background:var(--teal-soft); color:var(--teal-ink); }
 
       .mini-list{ list-style:none; margin:0; padding:0; }
-      .mini-list li{ display:flex; gap:10px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); }
+      .mini-list li{ display:flex; gap:10px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); min-width:0; }
       .mini-list li:last-child{ border-bottom:0; }
-      .mini-list .grow{ flex:1; } .mini-list .nm{ font-weight:600; font-size:14px; }
+      .mini-list .grow{ flex:1; min-width:0; } .mini-list .nm{ font-weight:600; font-size:14px; }
       .mini-list .dt{ color:var(--ink2); font-size:12.5px; }
 
-      /* tables */
-      .tblwrap{ overflow-x:auto; margin:0 -18px; padding:0 18px; }
+      /* tables — wide tables scroll inside their own container, never the page */
+      .tblwrap{ overflow-x:auto; overflow-y:hidden; max-width:100%; -webkit-overflow-scrolling:touch; scrollbar-width:thin; padding-bottom:4px; }
       table.tbl{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:820px; }
       .tbl th{ text-align:left; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink3); padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap; }
       .tbl td{ padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; }
@@ -146,31 +170,33 @@
       /* calculation detail row */
       .tbl tr.detail-row td{ background:var(--surface2); padding:14px 16px; }
       .calc-grid{ display:grid; gap:6px 26px; font-size:13px; margin-bottom:12px; }
-      @media (min-width:760px){ .calc-grid{ grid-template-columns:1fr 1fr; } }
-      .calc-grid div{ display:flex; justify-content:space-between; gap:14px; border-bottom:1px dashed var(--line); padding:3px 0; }
+      @media (min-width:760px){ .calc-grid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+      .calc-grid div{ display:flex; justify-content:space-between; gap:14px; border-bottom:1px dashed var(--line); padding:3px 0; min-width:0; }
       .calc-grid div span:first-child{ color:var(--ink2); }
       .calc-grid div span:last-child{ font-weight:700; text-align:right; }
-      .calc-result{ background:var(--teal-soft); color:var(--teal-ink); border-radius:8px; padding:9px 12px; font-size:13.5px; margin-bottom:12px; }
+      .calc-result{ background:var(--teal-soft); color:var(--teal-ink); border-radius:8px; padding:9px 12px; font-size:13.5px; margin-bottom:12px; overflow-wrap:break-word; }
       .ovr-form{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       .ovr-form input[type="number"]{ width:110px; }
-      .ovr-form input[type="text"]{ flex:1 1 220px; }
+      .ovr-form input[type="text"]{ flex:1 1 220px; min-width:0; }
       .ovr-note{ font-size:13px; color:var(--teal-ink); font-weight:600; }
 
       .toolbar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
-      .toolbar input[type="search"], .toolbar select{ font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; }
-      .toolbar input[type="search"]{ flex:1 1 200px; }
-      .formula{ background:var(--teal-soft); color:var(--teal-ink); border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:14px; }
+      .toolbar input[type="search"], .toolbar select{ font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; max-width:100%; }
+      .toolbar input[type="search"]{ flex:1 1 200px; min-width:0; }
+      .formula{ background:var(--teal-soft); color:var(--teal-ink); border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:14px; overflow-wrap:break-word; }
       .formula b{ font-weight:800; }
-      .formula .fl{ display:block; margin:2px 0; }
+      .formula .fl{ display:block; margin:2px 0; white-space:normal; overflow-wrap:anywhere; }
 
       /* form fields */
-      .field{ margin-bottom:12px; }
+      .field{ margin-bottom:12px; min-width:0; }
       .field label{ display:block; font-size:12.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink3); margin-bottom:5px; }
       .field input[type="text"], .field input[type="number"], .field select, .ovr-form input{
-        font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; width:100%;
+        font:500 14px "Manrope",sans-serif; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; width:100%; max-width:100%;
       }
+      .field input:focus, .field select:focus, .ovr-form input:focus, .toolbar input:focus, .toolbar select:focus{ outline:2px solid var(--teal); outline-offset:1px; border-color:var(--teal); }
       .ovr-form input{ width:auto; }
-      .test-result{ font-size:13.5px; border-radius:10px; padding:10px 13px; margin-top:10px; display:none; }
+      .field .fhelp{ font-size:12px; color:var(--ink3); margin:5px 0 0; text-transform:none; letter-spacing:0; font-weight:500; }
+      .test-result{ font-size:13.5px; border-radius:10px; padding:10px 13px; margin-top:10px; display:none; overflow-wrap:break-word; }
       .test-result.show{ display:block; }
       .test-result.warnbox{ background:var(--amber-soft); color:var(--amber); }
       .test-result.okbox{ background:var(--green-soft); color:var(--green); }
@@ -181,44 +207,46 @@
       .empty-state span{ font-size:13px; color:var(--ink3); }
 
       /* order panel */
-      .orderbox{ border:1.5px dashed var(--teal); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--surface); }
+      .orderbox{ border:1.5px dashed var(--teal); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--surface); min-width:0; overflow-wrap:break-word; }
       .orderbox h3{ margin:0 0 4px; font-size:15.5px; }
       .orderbox .status-line{ font-size:13px; color:var(--ink2); margin:0 0 8px; }
       .orderbox .grp{ margin:10px 0; } .orderbox .grp b{ font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink3); }
       .orderbox ul{ margin:6px 0 0; padding-left:18px; font-size:13.5px; }
-      .orderbox .total{ display:flex; justify-content:space-between; border-top:1px solid var(--line); margin-top:12px; padding-top:10px; font-weight:800; font-size:15px; }
+      .orderbox .total{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:12px; padding-top:10px; font-weight:800; font-size:15px; }
       .empty-note{ color:var(--ink3); font-size:13.5px; }
 
       /* report sheet */
-      .sheet{ background:var(--sheet); border:1px solid var(--line); border-radius:6px; box-shadow:var(--shadow); padding:30px 30px 26px; max-width:820px; margin:0 auto; }
-      .sheet .rhead{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; border-bottom:3px double var(--ink3); padding-bottom:12px; margin-bottom:16px; }
+      .sheet{ background:var(--sheet); border:1px solid var(--line); border-radius:6px; box-shadow:var(--shadow); padding:30px 30px 26px; width:100%; max-width:860px; margin:0 auto; min-width:0; }
+      .sheet .rhead{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 18px; border-bottom:3px double var(--ink3); padding-bottom:12px; margin-bottom:16px; min-width:0; }
       .sheet h2{ font-size:21px; margin:0; letter-spacing:-.01em; }
-      .sheet .rmeta{ color:var(--ink2); font-size:13px; text-align:right; }
+      .sheet .rmeta{ color:var(--ink2); font-size:13px; text-align:right; overflow-wrap:anywhere; }
       .sheet h3{ font-size:14px; text-transform:uppercase; letter-spacing:.06em; margin:20px 0 8px; color:var(--teal-ink); }
-      .sheet table{ width:100%; border-collapse:collapse; font-size:13px; }
+      #reportBody{ overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch; }
+      .sheet table{ width:100%; border-collapse:collapse; font-size:13px; min-width:520px; }
       .sheet th{ text-align:left; border-bottom:1.5px solid var(--ink3); padding:5px 8px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink2); }
       .sheet td{ padding:6px 8px; border-bottom:1px solid var(--line); }
       .sheet .r{ text-align:right; } .sheet th.r{ text-align:right; }
-      .sheet .sum{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 22px; font-size:13.5px; }
-      @media (min-width:640px){ .sheet .sum{ grid-template-columns:repeat(4,1fr); } }
+      .sheet .sum{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 22px; font-size:13.5px; }
+      @media (min-width:640px){ .sheet .sum{ grid-template-columns:repeat(4,minmax(0,1fr)); } }
       .sheet .sum div b{ display:block; font-size:19px; }
       .sheet .foot{ margin-top:22px; padding-top:10px; border-top:1px solid var(--line); color:var(--ink3); font-size:12px; }
       .sheet .demoflag{ background:var(--amber-soft); color:var(--amber); border-radius:8px; padding:8px 12px; font-size:12.5px; font-weight:700; margin-bottom:14px; }
 
       /* audit trail */
       .audit-list{ list-style:none; margin:0; padding:0; }
-      .audit-list li{ display:flex; gap:12px; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13.5px; align-items:baseline; }
+      .audit-list li{ display:flex; gap:12px; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13.5px; align-items:baseline; min-width:0; }
       .audit-list li:last-child{ border-bottom:0; }
       .audit-list .tm{ color:var(--ink3); font-size:12.5px; white-space:nowrap; }
+      .audit-list li span:last-child{ min-width:0; overflow-wrap:break-word; }
 
       /* v2 later section */
       .later{ border-style:dashed; background:var(--surface2); box-shadow:none; }
       .later h2{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
       .later .tag{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; background:var(--ink3); color:var(--surface); padding:3px 9px; border-radius:999px; }
       .later-grid{ display:grid; gap:10px; margin-top:12px; }
-      @media (min-width:760px){ .later-grid{ grid-template-columns:repeat(2,1fr); } }
-      @media (min-width:1020px){ .later-grid{ grid-template-columns:repeat(4,1fr); } }
-      .later-item{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; opacity:.85; }
+      @media (min-width:760px){ .later-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      @media (min-width:1020px){ .later-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); } }
+      .later-item{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; opacity:.85; min-width:0; }
       .later-item b{ display:block; font-size:14px; margin-bottom:3px; }
       .later-item span{ font-size:12.5px; color:var(--ink2); line-height:1.45; display:block; }
       .later-item .st{ font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink3); margin-top:8px; }
@@ -228,7 +256,10 @@
       @media (prefers-reduced-motion: reduce){ .toast{ transition:none; } }
 
       @media (max-width:640px){
-        .tblwrap{ overflow-x:visible; margin:0; padding:0; }
+        .wrap{ padding:16px 14px 48px; }
+        .header-in{ padding:12px 14px 10px; }
+        .brand-div{ display:none; }
+        .tblwrap{ overflow-x:visible; padding-bottom:0; }
         table.tbl{ min-width:0; } .tbl thead{ display:none; }
         .tbl tr{ display:block; border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:10px; }
         .tbl td{ display:flex; justify-content:space-between; align-items:center; gap:14px; border-bottom:1px dashed var(--line); padding:7px 2px; text-align:right; }
@@ -239,55 +270,68 @@
         .tbl tr.detail-row td{ display:block; text-align:left; border-bottom:0; padding:6px 2px; }
         .tbl tr.detail-row td::before{ display:none; }
         .tbl td.empty-cell{ display:block; text-align:left; } .tbl td.empty-cell::before{ display:none; }
-        .bar-row{ grid-template-columns:1fr 64px; } .bar-row .track{ grid-column:1 / -1; order:3; }
+        .bar-row{ grid-template-columns:minmax(0,1fr) 64px; } .bar-row .track{ grid-column:1 / -1; order:3; }
         .sheet{ padding:20px 16px; } .sheet .rmeta{ text-align:left; }
+        .sheet table{ min-width:0; }
+        #reportBody{ overflow-x:visible; }
         .calc-grid div{ flex-direction:column; gap:0; } .calc-grid div span:last-child{ text-align:left; }
+        .demo-ctl{ margin-left:0; }
       }
       @media print{
-        body{ background:#fff; } .conn,.tabs,.toolbar,.no-print,.toast,.demo-ctl,.live-error{ display:none !important; }
+        body{ background:#fff; } .site-header,.tabs,.toolbar,.no-print,.toast,.demo-ctl,.live-error{ display:none !important; }
         .panel{ display:none !important; } #panel-report{ display:block !important; }
         .sheet{ box-shadow:none; border:0; max-width:none; }
+        #reportBody{ overflow:visible; }
         .wrap{ padding:0; }
       }
     </style>
   </head>
   <body>
 
-    <!-- Connection status: live version mein ye strip SQL Server connection ki halat dikhayegi -->
-    <div class="conn">
-      <div class="conn-in">
-        <span class="item"><span class="dot"></span><b id="connTitle">Preview Mode — Not Connected</b></span>
-        <span class="item">Target Server <span class="mono">DESKTOP-SJO68CG\SQLEXPRESS</span></span>
-        <span class="item sep">|</span>
-        <span class="item">Database <span class="mono">POS_DB</span> (SmilePOS)</span>
-        <span class="item sep">|</span>
-        <span class="item">Access: Read-Only</span>
-        <span class="grow"></span>
-        <span class="item">Last fetch: <span class="mono" id="lastFetch">18 Nov 2026, 3:52 PM (sample)</span></span>
-        <button class="btn ghostlight small" id="refreshBtn" type="button"><span class="spin"></span>↻ Refresh Data</button>
+    <!-- App header: EMAN PHARMACY & VACCINE logo + connection status -->
+    <header class="site-header">
+      <div class="header-in">
+        <div class="header-main">
+          <div class="brand">
+            <span class="brand-logo"><svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="EMAN PHARMACY &amp; VACCINE"><defs><linearGradient id="tealLight" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#0E7C6B"/></linearGradient></defs><rect x="10" y="10" width="160" height="160" rx="36" fill="url(#tealLight)"/><rect x="78" y="38" width="24" height="104" rx="6" fill="#FFFFFF"/><rect x="38" y="78" width="104" height="24" rx="6" fill="#FFFFFF"/><text x="196" y="92" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#FFFFFF" letter-spacing="1">EMAN</text><text x="198" y="138" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600" fill="#D1FAE5" letter-spacing="5">PHARMACY &amp; VACCINE</text></svg></span>
+            <span class="brand-div" aria-hidden="true"></span>
+            <span class="brand-app">
+              <h1>Pharma Purchase Assistant</h1>
+              <small>Rozana purchasing guide · SmilePOS POS_DB</small>
+            </span>
+          </div>
+          <div class="header-actions">
+            <span class="demo-badge" id="previewBadge">● PREVIEW — sample data dikhaya ja raha hai</span>
+            <span class="live-badge" id="liveBadge" style="display:none">● LIVE — POS_DB se real data</span>
+            <span class="demo-off-badge" id="demoOffBadge" style="display:none">Demo data OFF — sirf live data dikhega</span>
+            <button class="btn ghostlight small" id="refreshBtn" type="button"><span class="spin"></span>↻ Refresh Data</button>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span class="hm-item"><span class="dot"></span><b id="connTitle">Preview Mode — Not Connected</b></span>
+          <span class="hm-item">Target Server&nbsp;<span class="mono" id="connServer">localhost\SQLEXPRESS</span></span>
+          <span class="sep">|</span>
+          <span class="hm-item">Database&nbsp;<span class="mono" id="connDb">POS_DB</span>&nbsp;(SmilePOS)</span>
+          <span class="sep">|</span>
+          <span class="hm-item">Access: Read-Only</span>
+          <span class="grow"></span>
+          <span class="hm-item">Last fetch:&nbsp;<span class="mono" id="lastFetch">18 Nov 2026, 3:52 PM (sample)</span></span>
+        </div>
       </div>
-    </div>
+    </header>
 
     <div class="wrap">
       <div class="live-error" id="liveError" style="display:none" role="alert">
         <div class="box"><b>⚠ Live data unavailable</b> — <span id="liveErrorMsg"></span> Filhal demo (sample) data dikhaya ja raha hai. Live data ke liye local server chala kar page <span class="mono">http://localhost:8080</span> se kholein — file se khuli page server tak nahi pohanch sakti.</div>
       </div>
       <div class="head">
-        <div class="grow" style="flex:1 1 320px">
-          <h1>Pharma Purchase Assistant</h1>
-          <p>SmilePOS ke data se rozana ki purchasing guide: kaun si medicine sab se zyada bik rahi hai, kahan stock khatam honay wala hai, aur kis supplier se kitna order karna hai — har suggestion ke peeche poori calculation nazar aati hai.</p>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end">
-          <div class="demo-ctl">
-            <span class="lab">Demo Data</span>
-            <label class="switch">
-              <input type="checkbox" id="demoToggle" checked aria-label="Demo data on ya off karein" />
-            </label>
-            <span class="st" id="demoState">ON</span>
-          </div>
-          <span class="demo-badge" id="previewBadge">● PREVIEW — sample data dikhaya ja raha hai</span>
-          <span class="live-badge" id="liveBadge" style="display:none">● LIVE — POS_DB se real data</span>
-          <span class="demo-off-badge" id="demoOffBadge" style="display:none">Demo data OFF — sirf live data dikhega</span>
+        <p>SmilePOS ke data se rozana ki purchasing guide: kaun si medicine sab se zyada bik rahi hai, kahan stock khatam honay wala hai, aur kis supplier se kitna order karna hai — har suggestion ke peeche poori calculation nazar aati hai.</p>
+        <div class="demo-ctl">
+          <span class="lab">Demo Data</span>
+          <label class="switch">
+            <input type="checkbox" id="demoToggle" checked aria-label="Demo data on ya off karein" />
+          </label>
+          <span class="st" id="demoState">ON</span>
         </div>
       </div>
 
@@ -438,7 +482,7 @@
             </div>
             <div class="rmeta">
               <div><b>Report date:</b> <span class="mono">Wed, 18 Nov 2026</span></div>
-              <div><b>Source:</b> <span class="mono">POS_DB · DESKTOP-SJO68CG\SQLEXPRESS</span></div>
+              <div><b>Source:</b> <span class="mono" id="reportSource">POS_DB · localhost\SQLEXPRESS</span></div>
               <div><b>Data refreshed:</b> <span class="mono" id="reportFetch">18 Nov 2026, 3:52 PM</span></div>
               <div><b>Settings:</b> <span class="mono" id="reportSettings">Analysis 30 din · Cover 21 din · Safety 5 din</span></div>
             </div>
@@ -466,7 +510,7 @@
           <div class="card">
             <h2>POS Connection (Read-Only)</h2>
             <p class="hint">Helper sirf parhta hai — POS_DB mein kabhi koi INSERT / UPDATE / DELETE nahi hota. Aik dafa settings save karein, phir har refresh khud connect ho jata hai.</p>
-            <div class="field"><label for="cfgServer">Server / Instance</label><input type="text" id="cfgServer" value="DESKTOP-SJO68CG\SQLEXPRESS" /></div>
+            <div class="field"><label for="cfgServer">Server Address / Instance</label><input type="text" id="cfgServer" value="localhost\SQLEXPRESS" /><p class="fhelp">Server ka naam ya IP likhein — instance (SERVER\INSTANCE) ya port ke saath bhi chalega, masalan localhost\SQLEXPRESS ya DESKTOP-SJO68CG\SQLEXPRESS. Save karne par app aur dashboard isi address se connect karein ge.</p></div>
             <div class="field"><label for="cfgDb">Database</label><input type="text" id="cfgDb" value="POS_DB" /></div>
             <div class="field"><label for="cfgAuth">Authentication</label>
               <select id="cfgAuth">
@@ -659,6 +703,11 @@
         document.getElementById("liveBadge").style.display = live ? "" : "none";
         document.getElementById("demoOffBadge").style.display = (!state.demo && !live) ? "" : "none";
         document.getElementById("connTitle").textContent = state.demo ? "Preview Mode — Not Connected" : (live ? "Live — POS_DB Connected" : "Not Connected — No Live Data");
+        var cfgSrvEl = document.getElementById("cfgServer"), cfgDbEl = document.getElementById("cfgDb");
+        if (cfgSrvEl) document.getElementById("connServer").textContent = cfgSrvEl.value.trim() || "localhost\\SQLEXPRESS";
+        if (cfgDbEl) document.getElementById("connDb").textContent = cfgDbEl.value.trim() || "POS_DB";
+        var rsEl = document.getElementById("reportSource");
+        if (rsEl && cfgSrvEl && cfgDbEl) rsEl.textContent = (cfgDbEl.value.trim() || "POS_DB") + " · " + (cfgSrvEl.value.trim() || "localhost\\SQLEXPRESS");
         document.getElementById("lastFetch").textContent = state.demo ? "18 Nov 2026, 3:52 PM (sample)" : (live ? state.liveFetchedAt + " (live)" : "— abhi tak koi live fetch nahi hua");
         document.getElementById("reportFetch").textContent = state.demo ? "18 Nov 2026, 3:52 PM" : (live ? state.liveFetchedAt : "— no live fetch yet");
         document.getElementById("reportDemoFlag").style.display = state.demo ? "" : "none";
@@ -1099,17 +1148,63 @@
         toast("Demo data wapas aa gaya (PREVIEW).");
       });
 
-      // ---------- Settings ----------
-      document.getElementById("saveConnBtn").addEventListener("click", function(){
-        var srv = document.getElementById("cfgServer").value.trim();
-        var db = document.getElementById("cfgDb").value.trim();
-        logAudit("POS connection settings save huein: server “" + srv + "”, database “" + db + "” (read-only).");
-        toast("Connection settings save ho gayein — live version inhi se connect hoga.");
-      });
-      document.getElementById("testConnBtn").addEventListener("click", function(){
+      // ---------- Settings: server address (GET/POST /api/settings · POST /api/test-connection) ----------
+      function connPayload(){
+        return {
+          server: document.getElementById("cfgServer").value.trim(),
+          database: document.getElementById("cfgDb").value.trim(),
+          auth: document.getElementById("cfgAuth").value
+        };
+      }
+      function applyAuthValue(auth){
+        var sel = document.getElementById("cfgAuth");
+        if (!sel || !auth) return;
+        var a = String(auth).toLowerCase();
+        for (var i = 0; i < sel.options.length; i++){
+          if (sel.options[i].text.toLowerCase() === a || sel.options[i].value.toLowerCase() === a){ sel.selectedIndex = i; return; }
+        }
+        if (a.indexOf("sql") > -1) sel.selectedIndex = 1;
+        else if (a.indexOf("windows") > -1) sel.selectedIndex = 0;
+      }
+      function loadSettings(){
+        fetch("/api/settings").then(function(r){
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        }).then(function(j){
+          var s = (j && (j.settings || j)) || {};
+          if (s.server) document.getElementById("cfgServer").value = s.server;
+          if (s.database) document.getElementById("cfgDb").value = s.database;
+          if (s.auth) applyAuthValue(s.auth);
+          renderChrome();
+        }).catch(function(){
+          // Server nahi mila (masalan page file se khuli hai) — default values barqarar rehte hain:
+          // server localhost\SQLEXPRESS, database POS_DB, auth Windows Authentication.
+        });
+      }
+      function showConnResult(ok, text){
         var box = document.getElementById("testResult");
-        box.className = "test-result show warnbox";
-        box.textContent = "Server se rabta ho raha hai… (GET /api/health)";
+        box.className = "test-result show " + (ok ? "okbox" : "warnbox");
+        box.textContent = text;
+      }
+      document.getElementById("saveConnBtn").addEventListener("click", function(){
+        var payload = connPayload();
+        if (!payload.server){ toast("Pehle Server / Instance likhein."); document.getElementById("cfgServer").focus(); return; }
+        showConnResult(false, "Settings server par save ho rahi hain… (POST /api/settings — " + payload.server + ")");
+        fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
+          return r.json().then(function(j){
+            if (!r.ok || (j && j.ok === false)) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
+            return j || {};
+          }, function(){ if (!r.ok) throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); return {}; });
+        }).then(function(j){
+          showConnResult(true, "✓ Settings save ho gayein — Server: " + payload.server + " · Database: " + payload.database + (j.message ? " · " + j.message : "") + ". Ab har refresh isi server se connect hoga.");
+          logAudit("POS connection settings save huein: server “" + payload.server + "”, database “" + payload.database + "” (read-only).");
+          renderChrome();
+          toast("Connection settings save ho gayein — server: " + payload.server);
+        }).catch(function(err){
+          showConnResult(false, "✗ Settings save nahi ho sakein: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Likhi hui values fields mein mehfooz hain, dobara koshish karein.");
+        });
+      });
+      function testViaHealth(){
         fetch("/api/health").then(function(r){
           return r.json().then(function(j){
             return { okStatus: r.ok, j: j || {} };
@@ -1117,15 +1212,33 @@
         }).then(function(res){
           var j = res.j;
           if (res.okStatus && j.ok){
-            box.className = "test-result show okbox";
-            box.textContent = "✓ Connection OK — Database: " + (j.database || "POS_DB") + " · Live items: " + (j.live_items != null ? j.live_items : "—") + " · Last fetch: " + (j.last_fetch || "—") + (j.message ? " · " + j.message : "");
+            showConnResult(true, "✓ Connection OK — Database: " + (j.database || "POS_DB") + " · Live items: " + (j.live_items != null ? j.live_items : "—") + " · Last fetch: " + (j.last_fetch || "—") + (j.message ? " · " + j.message : ""));
           } else {
-            box.className = "test-result show warnbox";
-            box.textContent = "✗ Connection masla — " + (j.message || j.error || "server ne ok nahi bheja") + " (Database: " + (j.database || "—") + ", live items: " + (j.live_items != null ? j.live_items : "—") + ", last fetch: " + (j.last_fetch || "—") + ")";
+            showConnResult(false, "✗ Connection masla — " + (j.message || j.error || "server ne ok nahi bheja") + " (Database: " + (j.database || "—") + ", live items: " + (j.live_items != null ? j.live_items : "—") + ", last fetch: " + (j.last_fetch || "—") + ")");
           }
         }).catch(function(err){
-          box.className = "test-result show warnbox";
-          box.textContent = "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.";
+          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.");
+        });
+      }
+      document.getElementById("testConnBtn").addEventListener("click", function(){
+        var payload = connPayload();
+        if (!payload.server){ toast("Pehle Server / Instance likhein."); document.getElementById("cfgServer").focus(); return; }
+        showConnResult(false, "Typed server se rabta ho raha hai… (POST /api/test-connection — " + payload.server + ")");
+        fetch("/api/test-connection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
+          if (r.status === 404) return { viaHealth: true };
+          return r.json().then(function(j){
+            return { okStatus: r.ok, j: j || {} };
+          }, function(){ throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); });
+        }).then(function(res){
+          if (res && res.viaHealth){ testViaHealth(); return; }
+          var j = res.j;
+          if (res.okStatus && j.ok !== false){
+            showConnResult(true, "✓ Connection OK — Server: " + (j.server || payload.server) + " · Database: " + (j.database || payload.database) + (j.message ? " · " + j.message : ""));
+          } else {
+            showConnResult(false, "✗ Connection fail — " + (j.message || j.error || "server ne ok nahi bheja") + " (Server: " + payload.server + ", Database: " + payload.database + ")");
+          }
+        }).catch(function(err){
+          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.");
         });
       });
       document.getElementById("saveCalcBtn").addEventListener("click", function(){
@@ -1247,6 +1360,7 @@
       });
 
       renderAll();
+      loadSettings();
       loadLiveOnStart();
     </script>
   </body>
