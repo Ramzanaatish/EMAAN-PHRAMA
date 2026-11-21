@@ -46,12 +46,39 @@ def test_sales_date_probe_picks_column_with_recent_rows():
     rows = connector.fetch_sales_all()
     assert rows == [{"ItemCode": "A", "Net7": 1, "Net30": 9, "Net90": 20}]
     assert connector.last_sales_diag["date_column"] == "Date"
-    assert "TRY_CONVERT(date, v.[Date])" in connector.seen[-1]
-    assert "TRY_CONVERT(date, v.[VoucherDate])" not in connector.seen[-1]
+    # v1.3.4: no TRY_CONVERT anywhere — it needs compat level 110+
+    # and POS_DB runs below it (live error 195). Dates parse with
+    # plain CONVERT + CASE + LIKE instead.
+    assert "TRY_CONVERT" not in connector.seen[-1]
+    assert "CONVERT(date, v.[Date], 103)" in connector.seen[-1]
+    assert "CONVERT(date, v.[VoucherDate], 103)" not in connector.seen[-1]
     assert connector.last_sales_diag["detail_rows"] == 10
     assert connector.last_sales_diag["joined_rows"] == 10
     assert connector.last_sales_diag["in_window_90d"] == 8
     assert connector.last_sales_diag["items_with_sales"] == 1
+
+
+def test_sales_sql_uses_no_try_functions():
+    """v1.3.4 regression: TRY_CONVERT/TRY_CAST/TRY_PARSE all need
+    compatibility level 110+; POS_DB is below it, so none of them may
+    appear in any query the sales refresh generates."""
+    connector = StubConnector([
+        [{"COLUMN_NAME": "ItemCode"}, {"COLUMN_NAME": "Quantity"},
+         {"COLUMN_NAME": "VoucherNo"}],
+        [{"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "VoucherDate"},
+         {"COLUMN_NAME": "Date"}],
+        [{"n": 0}],   # probe: VoucherDate has NO recent rows
+        [{"n": 5}],   # probe: Date HAS recent rows -> picked
+        [{"n": 10}],  # diag: SaleDetail rows
+        [{"n": 10}],  # diag: joined rows
+        [{"n": 8}],   # diag: rows in the 90-day window
+        [{"ItemCode": "A", "Net7": 1, "Net30": 9, "Net90": 20}],
+    ])
+    connector.fetch_sales_all()
+    for query in connector.seen:
+        assert "TRY_CONVERT" not in query
+        assert "TRY_CAST" not in query
+        assert "TRY_PARSE" not in query
 
 
 def test_sales_date_probe_falls_back_to_voucher_date():

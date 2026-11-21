@@ -3,7 +3,7 @@
 ; with Inno Setup 6 to produce PharmaPurchaseAssistant-Setup.exe.
 
 #define AppName "Pharma Purchase Assistant"
-#define AppVersion "1.3.3"
+#define AppVersion "1.3.4"
 #define AppPublisher "EMAN PHARMACY & VACCINE"
 #define AppExeName "PharmaPurchaseAssistant.exe"
 
@@ -16,7 +16,7 @@ DefaultDirName={autopf}\Pharma Purchase Assistant
 DefaultGroupName=Pharma Purchase Assistant
 DisableProgramGroupPage=yes
 OutputDir=..\installer-output
-OutputBaseFilename=PharmaPurchaseAssistant-Setup-1.3.3
+OutputBaseFilename=PharmaPurchaseAssistant-Setup-1.3.4
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

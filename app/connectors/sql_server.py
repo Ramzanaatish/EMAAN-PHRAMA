@@ -397,15 +397,42 @@ class SqlServerConnector(PosConnector):
     def _sale_date_expr(self, column: str) -> str:
         """A date expression that also parses dd/mm/yyyy strings.
 
-        SmilePOS date columns are usually real dates (the style is then
-        ignored), but a varchar date in dd/mm/yyyy form only parses with
-        style 103. TRY_CONVERT returns NULL instead of failing, so an
-        unparseable value simply does not count. The voucher alias `v`
-        is used because every caller joins SaleVoucher as `v`.
+        SmilePOS date columns are usually real dates, but a varchar
+        date in dd/mm/yyyy form only parses with style 103. v1.3.3
+        used TRY_CONVERT for this — but TRY_CONVERT needs SQL Server
+        2012+ AND a database compatibility level of 110+, and POS_DB
+        (an old SmilePOS database) runs below that: live, the refresh
+        failed with "'TRY_CONVERT' is not a recognized built-in
+        function name (195)". v1.3.4 parses with plain CONVERT + CASE
+        + LIKE instead — all available since SQL Server 2000 — so the
+        same expression works on any version or compatibility level:
+
+        * real date/datetime, or an ISO '2026-11-21' string ->
+          CONVERT(varchar, ..., 120) yields 'yyyy-mm-dd ...' ->
+          first branch, plain CONVERT(date, ...)
+        * '21/11/2026' (1- or 2-digit day/month, time suffix ok) ->
+          style 103 branch (SmilePOS slash dates are dd/mm/yyyy)
+        * 'Nov 21 2026' string -> last branch, plain CONVERT(date, ...)
+        * anything else (NULL, garbage) -> NULL, never an error
         """
+        raw = f"CONVERT(varchar(30), v.[{column}], 120)"
         return (
-            f"COALESCE(TRY_CONVERT(date, v.[{column}]), "
-            f"TRY_CONVERT(date, v.[{column}], 103))"
+            "CASE "
+            f"WHEN {raw} LIKE '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}]) "
+            f"WHEN {raw} LIKE '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}], 103) "
+            f"WHEN {raw} LIKE '[0-9]/[0-9]/[0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}], 103) "
+            f"WHEN {raw} LIKE '[0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}], 103) "
+            f"WHEN {raw} LIKE '[0-9][0-9]/[0-9]/[0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}], 103) "
+            f"WHEN {raw} LIKE '[A-Z][a-z][a-z] [0-9][0-9] [0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}]) "
+            f"WHEN {raw} LIKE '[A-Z][a-z][a-z] [0-9] [0-9][0-9][0-9][0-9]%' "
+            f"THEN CONVERT(date, v.[{column}]) "
+            "ELSE NULL END"
         )
 
     def _recent_joined_count(self, column: str, days: int, conn=None) -> int:

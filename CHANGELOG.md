@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.3.4 — 2026-11-21
+
+TRY_CONVERT crash fix (Nelson, 21 Nov 2026, live screenshot: naya
+v1.3.3 server chalaya to Refresh fail — "'TRY_CONVERT' is not a
+recognized built-in function name (195)").
+
+- **Root cause:** TRY_CONVERT needs SQL Server 2012+ AND a database
+  compatibility level of 110+. POS_DB (old SmilePOS database) runs
+  below that level, so the v1.3.3 date probe failed the whole
+  refresh (POST /api/refresh 503) and the dashboard fell back to
+  stale data. The v1.3.0 server worked because it never called
+  TRY_CONVERT.
+- **Fix:** the date expression now parses with plain CONVERT + CASE
+  + LIKE only (available since SQL Server 2000): real dates and ISO
+  strings via style 120, dd/mm/yyyy strings (1- or 2-digit day/month,
+  time suffix ok) via style 103, 'Nov 21 2026' strings via plain
+  CONVERT, anything else -> NULL, never an error. Same probe, same
+  urgency sort, same diagnostics — only the SQL function changed.
+- **Tests:** 148 passed (147 + 1 new v1.3.4 regression test: no
+  TRY_CONVERT/TRY_CAST/TRY_PARSE in any generated sales query).
+
 ## v1.3.3 — 2026-11-21
 
 Out-of-stock-first urgency sort + suggestions audit (Nelson, 21 Nov
