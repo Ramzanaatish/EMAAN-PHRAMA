@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.3.6 — 2026-11-21
+
+Sales attach fix (Nelson, 21 Nov 2026, live server window): refresh
+succeeded and counted 8,678 SaleDetail rows, 7,200 in the 90-day
+window, 781 items with sales and 1,388 items with a last sale — yet
+the dashboard showed NET UNITS SOLD (30d) 0, 0 suggestions and
+empty "aakhri sale" dates.
+
+- **Root cause:** the lookup dicts (sales, stock, suppliers, stock
+  entries) were keyed by RAW pyodbc values while products are
+  looked up by str(code).strip(). An INT ItemCode (or a CHAR value
+  padded with spaces) never matched its string code, so sales rows
+  silently missed every product. The join and the dates were fine —
+  the attach was broken.
+- **Fix:** every lookup dict is now keyed by str(code).strip() at
+  import time. The refresh also reports "kept with sales" and "kept
+  with last sale" in the [refresh] line, so a future attach failure
+  is visible in the server window instead of hiding behind a 0
+  dashboard. (Note: 1.3.5 was HTML-only, so the server goes
+  1.3.4 → 1.3.6.)
+- **Tests:** 150 passed (148 + 2 new v1.3.6 tests: INT sales codes
+  and space-padded codes both attach to string products).
+
 ## v1.3.4 — 2026-11-21
 
 TRY_CONVERT crash fix (Nelson, 21 Nov 2026, live screenshot: naya

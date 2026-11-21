@@ -49,11 +49,18 @@ def _fetch_sales(connector, conn):
     Prefers the connector's single-query fetch_sales_all; falls back
     to three fetch_sales calls for older connectors / test fakes that
     do not have it yet.
+
+    v1.3.6: keys are normalised to str(...).strip(). pyodbc hands back
+    whatever type the column is — an INT ItemCode, or a CHAR value
+    padded with spaces — while products are looked up by their
+    stripped string code. With raw keys the lookup missed every row:
+    live, the server counted 781 items with sales yet the dashboard
+    showed net sold 0 and no last-sale dates at all.
     """
     fetch_all = getattr(connector, "fetch_sales_all", None)
     if fetch_all is not None:
         rows = fetch_all(conn=conn) if conn is not None else fetch_all()
-        return {row["ItemCode"]: row for row in rows}
+        return {str(row["ItemCode"]).strip(): row for row in rows}
     merged: dict[str, dict] = {}
     for days, key in ((7, "Net7"), (30, "Net30"), (90, "Net90")):
         if conn is not None:
@@ -61,7 +68,9 @@ def _fetch_sales(connector, conn):
         else:
             rows = connector.fetch_sales(days)
         for row in rows:
-            merged.setdefault(row["ItemCode"], {})[key] = int(row["NetQty"])
+            merged.setdefault(str(row["ItemCode"]).strip(), {})[key] = int(
+                row["NetQty"]
+            )
     return merged
 
 
@@ -101,15 +110,21 @@ def _fetch_all(connector):
 def _fetch_all_on_connection(connector, conn):
     kwargs = {"conn": conn} if conn is not None else {}
     products = connector.fetch_products(**kwargs)
+    # v1.3.6: every lookup dict is keyed by str(code).strip(), the
+    # same form refresh_from_pos uses for products — raw pyodbc keys
+    # (INT codes, CHAR-padded strings) silently missed every lookup.
     stock_rows = {
-        row["ItemCode"]: row for row in connector.fetch_stock(**kwargs)
+        str(row["ItemCode"]).strip(): row
+        for row in connector.fetch_stock(**kwargs)
     }
     suppliers = {
-        row["AccountCode"]: row["AccountName"]
+        str(row["AccountCode"]).strip(): row["AccountName"]
         for row in connector.fetch_suppliers(**kwargs)
     }
     sales = _fetch_sales(connector, conn)
     entries, entries_error = _fetch_stock_entries(connector, conn)
+    if entries is not None:
+        entries = {str(code).strip(): count for code, count in entries.items()}
     return products, stock_rows, suppliers, sales, entries, entries_error
 
 
@@ -147,6 +162,12 @@ def refresh_from_pos(store, connector) -> dict:
         filter_on = entries is not None
         kept = 0
         skipped = 0
+        # v1.3.6: sales counted BEFORE the filter (items_with_sales)
+        # can be > 0 while the dashboard shows 0 — the sales never
+        # attached to a kept product. These two counts prove the
+        # attach worked, and are printed in the [refresh] line.
+        kept_with_sales = 0
+        kept_with_last_sale = 0
 
         with store.session() as session:
             session.query(Product).filter(Product.data_source == "live").delete(
@@ -182,6 +203,10 @@ def refresh_from_pos(store, connector) -> dict:
                 # both; "" when the item never sold).
                 raw_last_sale = sales_row.get("LastSale")
                 last_sale = str(raw_last_sale)[:10] if raw_last_sale else ""
+                if net_30 > 0:
+                    kept_with_sales += 1
+                if last_sale:
+                    kept_with_last_sale += 1
                 session.add(
                     Product(
                         item_code=code,
@@ -234,6 +259,8 @@ def refresh_from_pos(store, connector) -> dict:
             "items_with_entry": entries_diag.get("items_with_entry"),
             "kept_after_filter": kept,
             "skipped_no_stock_entry": skipped,
+            "kept_with_sales": kept_with_sales,
+            "kept_with_last_sale": kept_with_last_sale,
             "stock_entry_filter": "on" if filter_on else "off",
             "stock_entry_error": entries_error,
         }
@@ -245,8 +272,8 @@ def refresh_from_pos(store, connector) -> dict:
             "{date_col}; SaleDetail rows {detail}, joined with voucher "
             "{joined}, in 90-day window {window}, items with sales "
             "{with_sales}, items with last sale {with_last}; stock entries: purchase items {purchase}, "
-            "opening items {opening}; kept {kept}, skipped {skipped} "
-            "(filter {filter_state})".format(
+            "opening items {opening}; kept {kept} (with sales {kept_sales}, with last sale {kept_last}), "
+            "skipped {skipped} (filter {filter_state})".format(
                 items=len(products),
                 date_col=sales_diag.get("date_column"),
                 detail=sales_diag.get("detail_rows"),
@@ -257,6 +284,8 @@ def refresh_from_pos(store, connector) -> dict:
                 purchase=entries_diag.get("purchase_items"),
                 opening=entries_diag.get("opening_items"),
                 kept=kept,
+                kept_sales=kept_with_sales,
+                kept_last=kept_with_last_sale,
                 skipped=skipped,
                 filter_state="on" if filter_on else "off",
             )
