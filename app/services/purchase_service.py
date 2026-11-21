@@ -61,7 +61,7 @@ def suggestions(
                 ),
             }
         )
-    rows.sort(key=lambda row: purchase.days_left(row["item"]))
+    rows.sort(key=lambda row: purchase.urgency_key(row["item"]))
     return rows
 
 

@@ -12,6 +12,7 @@ without restarting the server.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file
@@ -50,6 +51,10 @@ def product_to_html_item(figures) -> dict:
         "max": figures.max_level,
         "cost": figures.cost,
         "packSize": figures.pack_size,
+        # v1.3.3: last sale date, ISO "YYYY-MM-DD" or null when unknown —
+        # the "most recently out of stock first" sort signal. Older
+        # servers do not send it; the page then falls back to days-left.
+        "lastSale": figures.last_sale_date or None,
     }
     if figures.expiry_qty and figures.expiry_batch:
         item["expiry"] = {
@@ -261,6 +266,12 @@ def create_app(store=None, connector=None, html_path=None, connector_factory=Non
             figures = live_figures()
         except Exception as exc:  # noqa: BLE001 - reported as the API error
             return jsonify({"ok": False, "error": str(exc)}), 503
+        try:
+            diagnostics = json.loads(
+                store.get_setting("last_refresh_diag", "") or "{}"
+            )
+        except ValueError:
+            diagnostics = {}
         return jsonify(
             {
                 "ok": True,
@@ -270,6 +281,13 @@ def create_app(store=None, connector=None, html_path=None, connector_factory=Non
                 "fetched_at": store.get_setting("last_fetch", ""),
                 "item_count": len(figures),
                 "items": [product_to_html_item(fig) for fig in figures],
+                # v1.3.1: the server already filtered by stock entry at
+                # import time — the HTML proxy filter then stands down.
+                "stock_entry_filtered": store.get_setting(
+                    "stock_entry_filter", "off"
+                )
+                == "on",
+                "diagnostics": diagnostics,
             }
         )
 

@@ -58,6 +58,8 @@ class ItemFigures:
     max_level: int = 0
     cost: int = 0
     pack_size: int = 1
+    # v1.3.3: last sale date, ISO "YYYY-MM-DD" or "" when unknown.
+    last_sale_date: str = ""
     item_code: str = ""
     manufacturer: str = ""
     item_group: str = ""
@@ -188,6 +190,37 @@ def days_left(item: ItemFigures) -> float:
     if rate <= 0:
         return math.inf
     return usable_stock(item) / rate
+
+
+def _sale_ordinal(item: ItemFigures) -> int:
+    """Last sale date as a day number (0 when unknown)."""
+    from datetime import date
+
+    raw = (item.last_sale_date or "")[:10]
+    try:
+        year, month, day = (int(part) for part in raw.split("-"))
+        return date(year, month, day).toordinal()
+    except (ValueError, TypeError):
+        return 0
+
+
+def urgency_key(item: ItemFigures) -> tuple:
+    """Sort key: out-of-stock first, most recently sold first.
+
+    v1.3.3 (urgency ranking, as used by pharmacy reorder triage: stock-out
+    + recency first). Order: (1) usable stock 0 comes before stocked
+    items; (2) among the same group, an item with a known last sale
+    date comes before an undated one, most recent first; (3) items whose
+    stock expires soonest come first (expiry_key YYYYMM, missing = last
+    — live imports carry no expiry yet, so this is a no-op there);
+    (4) fewest days of cover left first. The ADS/Target/Suggested
+    formula is untouched — this only orders the rows.
+    """
+    out_rank = 0 if usable_stock(item) <= 0 else 1
+    ordinal = _sale_ordinal(item)
+    dated_rank = 0 if ordinal else 1
+    expiry_rank = item.expiry_key if item.expiry_key else 999999
+    return (out_rank, dated_rank, -ordinal, expiry_rank, days_left(item))
 
 
 def status_of(item: ItemFigures) -> str:

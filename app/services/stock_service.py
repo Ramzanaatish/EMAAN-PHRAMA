@@ -111,13 +111,17 @@ def demand_ranking(store, analysis_days: int, limit: int = 10, items=None) -> li
 
 
 def needs_attention(store, items=None) -> list[ItemFigures]:
-    """Out-of-stock and critical items, shortest cover first."""
+    """Out-of-stock and critical items, most urgent first.
+
+    v1.3.3: same urgency order as suggestions (out first, most
+    recently sold first) instead of plain days-left.
+    """
     items = [
         item
         for item in _items(store, items)
         if purchase.status_of(item) in (purchase.STATUS_OUT, purchase.STATUS_CRITICAL)
     ]
-    return sorted(items, key=purchase.days_left)
+    return sorted(items, key=purchase.urgency_key)
 
 
 def near_expiry(store, items=None) -> list[ItemFigures]:

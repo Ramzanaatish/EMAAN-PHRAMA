@@ -75,8 +75,13 @@ def test_fetch_products_fails_loudly_without_item_code():
 # ------------------------------------------------------------ sales query
 def test_fetch_sales_all_is_one_query_for_three_windows():
     connector = StubConnector([
-        [{"COLUMN_NAME": "ItemCode"}, {"COLUMN_NAME": "Quantity"}],
+        [{"COLUMN_NAME": "ItemCode"}, {"COLUMN_NAME": "Quantity"},
+         {"COLUMN_NAME": "VoucherNo"}],
         [{"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "VoucherDate"}],
+        [{"n": 5}],   # date probe: VoucherDate has recent rows
+        [{"n": 10}],  # diag: SaleDetail rows
+        [{"n": 10}],  # diag: rows joined with a voucher
+        [{"n": 8}],   # diag: rows inside the 90-day window
         [{"ItemCode": "A", "Net7": 1, "Net30": 9, "Net90": 20}],
     ])
     rows = connector.fetch_sales_all()
@@ -85,13 +90,21 @@ def test_fetch_sales_all_is_one_query_for_three_windows():
     assert "Net30" in connector.seen[-1]
     assert "Net90" in connector.seen[-1]
     assert "SaleDetail" in connector.seen[-1]
-    assert len(connector.seen) == 3  # 2 column lookups + 1 aggregation
+    assert "VoucherDate" in connector.seen[-1]
+    assert len(connector.seen) == 7  # 2 column lookups + probe + 3 diag + 1 aggregation
+    assert connector.last_sales_diag["date_column"] == "VoucherDate"
+    assert connector.last_sales_diag["items_with_sales"] == 1
 
 
 def test_fetch_sales_wrapper_reads_the_right_window():
     connector = StubConnector([
-        [{"COLUMN_NAME": "ItemCode"}, {"COLUMN_NAME": "Quantity"}],
+        [{"COLUMN_NAME": "ItemCode"}, {"COLUMN_NAME": "Quantity"},
+         {"COLUMN_NAME": "VoucherNo"}],
         [{"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "VoucherDate"}],
+        [{"n": 5}],
+        [{"n": 10}],
+        [{"n": 10}],
+        [{"n": 8}],
         [{"ItemCode": "A", "Net7": 1, "Net30": 9, "Net90": 20}],
     ])
     assert connector.fetch_sales(30) == [{"ItemCode": "A", "NetQty": 9}]

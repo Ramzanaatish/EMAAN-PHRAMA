@@ -465,6 +465,10 @@
           </div>
           <p class="empty-note" id="stockEmpty" style="display:none; margin-top:12px">Koi item match nahi hua — search ya filter badal kar dekhein.</p>
           <div id="stockEmptyState" style="display:none; margin-top:4px"></div>
+          <div class="rowflex no-print" id="stockMoreWrap" style="display:none; margin-top:12px; align-items:center; gap:12px">
+            <span class="hint" id="stockCount" style="margin:0"></span>
+            <button class="btn" id="stockShowMore" type="button">Show more</button>
+          </div>
         </div>
       </section>
 
@@ -609,6 +613,7 @@
         demo: true,
         liveItems: null,     // GET /api/data se aaya live data (null = abhi tak fetch nahi hua / fail)
         liveFetchedAt: null, // server ka bheja hua fetched_at
+        serverFiltered: false, // server ne import par stock-entry filter laga diya (v1.3.1) — phir proxy filter nahi
         analysis: 30,        // sales analysis window (din): 7 / 30 / 90
         cover: 21,           // target cover (din): 7 / 14 / 21 / 30
         safetyDays: 5,       // safety stock = ADS × safetyDays
@@ -616,10 +621,39 @@
         overrides: {},       // name -> { qty, reason }
         openCalc: {},        // name -> true (calculation row khuli hai)
         approved: false,
-        audit: []            // { time, text }
+        audit: [],           // { time, text }
+        stockShown: 50,      // v1.3.2 — All Stock mein aik waqt mein kitni rows dikhani hain (Show more se +50)
+        stockKey: ""         // v1.3.2 — search/filter/data badle to stockShown dobara 50 ho jata hai
       };
 
-      function data(){ return state.demo ? ITEMS : (state.liveItems || []); }
+      // v1.3.1 — stock-entry filter: sirf wo medicines dikhao jin ki stock
+      // entry pehle kam-az-kam 1 dafa hui ho. /api/data ye fields bhejta hai:
+      // stock, net30, reorder, max, incoming, unusable. "Stock entry" ka
+      // exact POS record (PurchaseDetail / OpeningStock) server tak mehdood
+      // hai — is liye live data mein ye nishani use hoti hai: stock > 0
+      // (abhi stock mein hai) ya net30 > 0 (pichle 30 din mein bika — pehle
+      // stock mein raha hoga) ya reorder/max level set hai (purchasing ke
+      // liye configure hua) ya incoming/unusable > 0 (order ya expired
+      // stock ka record hai). Koi aik nishani ho to item dikhta hai; sab
+      // zero hon to catalogue filler samajh kar chhupa diya jata hai.
+      // Server ne import par exact filter laga diya ho (state.serverFiltered)
+      // to ye proxy dobara nahi lagta. Demo data is filter se bahar hai.
+      function hasStockEntry(it){
+        return (it.stock || 0) > 0 || (it.net30 || 0) > 0 ||
+          (it.reorder || 0) > 0 || (it.max || 0) > 0 ||
+          (it.incoming || 0) > 0 || (it.unusable || 0) > 0;
+      }
+      function filterEmptyHTML(){
+        return '<p class="empty-note">Live data aa gaya lekin koi medicine stock-entry filter par poori nahi utri — sab ka stock, sales aur reorder level zero hai.</p>';
+      }
+      function allFilteredOut(){
+        return !state.demo && !!(state.liveItems && state.liveItems.length) && !data().length;
+      }
+      function data(){
+        if (state.demo) return ITEMS;
+        var live = state.liveItems || [];
+        return state.serverFiltered ? live : live.filter(hasStockEntry);
+      }
       function findItem(name){ var d = data(); for (var i = 0; i < d.length; i++) if (d[i].name === name) return d[i]; return null; }
 
       // ---------- Formula (Final Recommendation) ----------
@@ -644,6 +678,35 @@
       function needsReorder(it){ return suggestedQty(it) > 0 || !!state.overrides[it.name]; }
 
       function daysLeft(it){ var a = ads30(it); return a > 0 ? usable(it) / a : Infinity; }
+      // v1.3.3 — urgency sort (pharmacy reorder triage: stock-out +
+      // recency first). Order: (1) usable stock 0 first; (2) a known
+      // last sale date before an undated item, most recent first;
+      // (3) stock expiring soonest first (expiry.key YYYYMM; live data
+      // carries no expiry yet, so this is a no-op there); (4) fewest
+      // days of cover left. The ADS/Target/Suggested formula is
+      // untouched — this only orders the rows. Old servers send no
+      // lastSale, so those items sort as undated (days-left fallback).
+      function lastSaleMs(it){ return it.lastSale ? Date.parse(it.lastSale) : NaN; }
+      function urgencySort(a, b){
+        var ao = usable(a) <= 0 ? 0 : 1, bo = usable(b) <= 0 ? 0 : 1;
+        if (ao !== bo) return ao - bo;
+        var ad = lastSaleMs(a), bd = lastSaleMs(b);
+        var aDated = !isNaN(ad), bDated = !isNaN(bd);
+        if (aDated !== bDated) return aDated ? -1 : 1;
+        if (aDated && ad !== bd) return bd - ad;
+        var ae = (a.expiry && a.expiry.key) || 999999, be = (b.expiry && b.expiry.key) || 999999;
+        if (ae !== be) return ae - be;
+        var da = daysLeft(a), db = daysLeft(b);
+        return da === db ? 0 : (da < db ? -1 : 1);
+      }
+      function lastSaleText(it){
+        // Parse the YYYY-MM-DD parts directly: Date.parse gives UTC
+        // midnight, which would show the previous day west of UTC.
+        var parts = (it.lastSale || "").split("-");
+        if (parts.length !== 3 || !+parts[1] || !+parts[2]) return "";
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return " · aakhri sale: " + (+parts[2]) + " " + months[+parts[1] - 1] + " " + parts[0];
+      }
       function statusOf(it){
         if (usable(it) <= 0) return "out";
         if (daysLeft(it) <= 3) return "critical";
@@ -731,8 +794,11 @@
         var d = data();
         if (!d.length){
           var labs = ["Total Items","Out of Stock","Critical (≤ 3 din)","Low Stock","Net Units Sold (" + state.analysis + " din)","Est. Purchase Value"];
+          var emptySub = allFilteredOut()
+            ? "Live data aa gaya lekin koi medicine stock-entry filter par poori nahi utri"
+            : "POS_DB connect honay ke baad live figure aayega";
           document.getElementById("kpis").innerHTML = labs.map(function(l){
-            return '<div class="kpi"><div class="lab">' + l + '</div><div class="val mono">—</div><div class="sub">POS_DB connect honay ke baad live figure aayega</div></div>';
+            return '<div class="kpi"><div class="lab">' + l + '</div><div class="val mono">—</div><div class="sub">' + emptySub + "</div></div>";
           }).join("");
           return;
         }
@@ -742,7 +808,7 @@
         var sold = d.reduce(function(s,i){ return s + netSold(i, state.analysis); }, 0);
         var est = d.filter(needsReorder).reduce(function(s,i){ return s + finalQty(i) * i.cost; }, 0);
         var cards = [
-          { lab:"Total Items", val: fmt(d.length), sub:"catalogue" + (state.demo ? " (sample)" : ""), cls:"" },
+          { lab:"Total Items", val: fmt(d.length), sub:"catalogue" + (state.demo ? " (sample)" : " · sirf stock-entry wali"), cls:"" },
           { lab:"Out of Stock", val: out, sub:"usable stock khatam", cls: out ? "alert" : "" },
           { lab:"Critical (≤ 3 din)", val: crit, sub:"stock khatam honay wala", cls: crit ? "alert" : "" },
           { lab:"Low Stock", val: low, sub:"reorder level se neechay", cls: low ? "warn" : "" },
@@ -773,7 +839,7 @@
         var box = document.getElementById("attentionWrap");
         if (!d.length){ box.innerHTML = emptyStateHTML(); return; }
         var list = d.filter(function(i){ var s = statusOf(i); return s === "out" || s === "critical"; })
-          .sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+          .sort(urgencySort);
         box.innerHTML = '<ul class="mini-list">' + (list.length ? list.map(function(it){
           return '<li><span class="chip ' + statusOf(it) + '">' + STATUS_LABEL[statusOf(it)] + '</span>' +
             '<span class="grow"><span class="nm">' + esc(it.name) + '</span><br><span class="dt">' + esc(it.supplier) + " · usable stock " + fmt(usable(it)) + " · ADS " + ads30(it).toFixed(1) + "/din</span></span>" +
@@ -827,11 +893,11 @@
         var tbody = document.querySelector("#reorderTable tbody");
         var sumEl = document.getElementById("reorderSummary");
         if (!d.length){
-          tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">' + emptyStateHTML() + "</td></tr>";
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">' + (allFilteredOut() ? filterEmptyHTML() : emptyStateHTML()) + "</td></tr>";
           sumEl.textContent = "";
           return;
         }
-        var rows = d.filter(needsReorder).sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+        var rows = d.filter(needsReorder).sort(urgencySort);
         var totalQty = 0, totalCost = 0;
         var html = "";
         rows.forEach(function(it){
@@ -847,7 +913,7 @@
             '<td class="r mono" data-label="Target">' + fmt(targetStock(it)) + "</td>" +
             '<td class="r mono" data-label="Incoming">' + fmt(it.incoming || 0) + "</td>" +
             '<td class="r sug" data-label="Order Qty"><span class="mono"><b>' + fmt(q) + "</b></span>" +
-              (o ? '<small>override · calc: ' + fmt(suggestedQty(it)) + '</small>' : '<small>stock chalega: ' + daysText(it) + "</small>") + "</td>" +
+              (o ? '<small>override · calc: ' + fmt(suggestedQty(it)) + '</small>' : '<small>stock chalega: ' + daysText(it) + lastSaleText(it) + "</small>") + "</td>" +
             '<td class="r mono" data-label="Est. Cost">' + rs(c) + "</td>" +
             '<td data-label=""><span style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:flex-end">' +
               '<button class="btn small" type="button" data-act="calc" data-name="' + esc(it.name) + '">' + (state.openCalc[it.name] ? "▴ Calculation" : "▾ Calculation") + "</button>" +
@@ -857,7 +923,20 @@
             html += '<tr class="detail-row"><td colspan="9">' + calcDetailHTML(it) + "</td></tr>";
           }
         });
-        tbody.innerHTML = html || '<tr><td colspan="9" class="empty-cell"><p class="empty-note">Is cover setting par kisi item ki zaroorat nahi — sab ka usable stock target se zyada hai.</p></td></tr>';
+        if (!html){
+          // v1.3.1: khaali list ki wajah saaf batayein — "stock zyada hai"
+          // us waqt ghalat hai jab ADS hi 0 ho (sales data nahi aaya).
+          var soldTotal = d.reduce(function(s,i){ return s + netSold(i, state.analysis); }, 0);
+          var emptyMsg;
+          if (!state.demo && soldTotal === 0){
+            emptyMsg = "Koi suggestion nahi — POS_DB se koi sales data nahi aaya (net sales 0 hain), is liye ADS 0 hai aur target 0 banta hai. Refresh ke baad bhi 0 ho to server window mein refresh ki diagnosis dekhein (sales rows / items with sales).";
+          } else {
+            emptyMsg = "Is cover setting par kisi item ki zaroorat nahi — sab ka usable stock target se zyada hai.";
+          }
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-cell"><p class="empty-note">' + emptyMsg + "</p></td></tr>";
+        } else {
+          tbody.innerHTML = html;
+        }
         sumEl.textContent = rows.length + " items · total " + fmt(totalQty) + " units · " + rs(totalCost);
       }
 
@@ -870,7 +949,7 @@
         if (!names.length){
           body.innerHTML = state.demo
             ? '<p class="empty-note">Abhi koi item draft mein nahi. Upar table se “+ Draft” dabayein — order supplier ke hisab se khud group ho jayega.</p>'
-            : emptyStateHTML();
+            : (allFilteredOut() ? filterEmptyHTML() : emptyStateHTML());
           totRow.style.display = "none"; dl.disabled = true; cl.disabled = true; ap.disabled = true;
           st.innerHTML = "Status: <b>Draft</b> — ye order abhi kahin nahi gaya. Quantities, rates aur supplier details check kar ke approve karein, phir file download kar ke supplier ko bhejein.";
           return;
@@ -905,7 +984,8 @@
           tbody.innerHTML = "";
           emptyEl.style.display = "none";
           stateEl.style.display = "block";
-          stateEl.innerHTML = emptyStateHTML();
+          stateEl.innerHTML = allFilteredOut() ? filterEmptyHTML() : emptyStateHTML();
+          document.getElementById("stockMoreWrap").style.display = "none";
           return;
         }
         stateEl.style.display = "none";
@@ -916,8 +996,13 @@
           return (!q || it.name.toLowerCase().indexOf(q) > -1) &&
                  (!sup || it.supplier === sup) &&
                  (!st || statusOf(it) === st);
-        }).sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
-        tbody.innerHTML = rows.map(function(it){
+        }).sort(urgencySort);
+        // v1.3.2 — memory: aik waqt mein sirf 50 rows render karo. Search,
+        // filter ya data badle to dobara 50 se shuru karo; Show more se +50.
+        var key = q + "|" + sup + "|" + st + "|" + d.length;
+        if (key !== state.stockKey){ state.stockKey = key; state.stockShown = 50; }
+        var shown = rows.slice(0, state.stockShown);
+        tbody.innerHTML = shown.map(function(it){
           var s = statusOf(it);
           return "<tr>" +
             '<td class="med-cell" data-label="Medicine"><span class="med">' + esc(it.name) + "<small>" + esc(it.pack) + '</small></span></td>' +
@@ -925,11 +1010,22 @@
             '<td class="r mono" data-label="Stock">' + fmt(it.stock) + "</td>" +
             '<td class="r mono" data-label="Usable">' + fmt(usable(it)) + "</td>" +
             '<td class="r mono" data-label="Net Sold (30 din)">' + fmt(it.net30) + "</td>" +
-            '<td data-label="Stock chalega">' + daysBar(it) + "</td>" +
+            '<td data-label="Stock chalega">' + daysBar(it) + "<small>" + lastSaleText(it) + "</small></td>" +
             '<td class="r mono" data-label="ReOrder / Max">' + fmt(it.reorder) + " / " + fmt(it.max) + "</td>" +
             '<td data-label="Status"><span class="chip ' + s + '">' + STATUS_LABEL[s] + "</span></td></tr>";
         }).join("");
         emptyEl.style.display = rows.length ? "none" : "block";
+        // v1.3.2 — count + Show more button.
+        var moreWrap = document.getElementById("stockMoreWrap");
+        var countEl = document.getElementById("stockCount");
+        var moreBtn = document.getElementById("stockShowMore");
+        if (rows.length){
+          moreWrap.style.display = "flex";
+          countEl.textContent = Math.min(state.stockShown, rows.length) + " / " + rows.length + " dikhaye ja rahe hain";
+          moreBtn.style.display = rows.length > state.stockShown ? "" : "none";
+        } else {
+          moreWrap.style.display = "none";
+        }
       }
       function rebuildSupplierFilter(){
         var sel = document.getElementById("supplierFilter");
@@ -948,7 +1044,7 @@
         var d = data();
         var box = document.getElementById("reportBody");
         if (!d.length){
-          box.innerHTML = emptyStateHTML() +
+          box.innerHTML = (allFilteredOut() ? filterEmptyHTML() : emptyStateHTML()) +
             '<p style="font-size:13px; color:var(--ink3); margin-top:12px">Report structure (live data aanay par): Stock Position Summary · Urgent Purchases (stock ≤ 3 din) · Top Selling Items · Supplier-wise Suggested Purchases — har report par date aur data-refresh time likha hoga.</p>';
           return;
         }
@@ -963,7 +1059,7 @@
           "<div>Est. Purchase<b class='mono'>" + rs(est) + "</b></div></div>";
 
         var urgent = d.filter(function(i){ var s = statusOf(i); return s === "out" || s === "critical"; })
-          .sort(function(a,b){ return daysLeft(a) - daysLeft(b); });
+          .sort(urgencySort);
         html += "<h3>Urgent — Aaj Order Karein (usable stock ≤ 3 din)</h3>" +
           '<table><thead><tr><th>Medicine</th><th>Supplier</th><th class="r">Usable</th><th class="r">ADS</th><th class="r">Order Qty</th><th class="r">Est. Cost</th></tr></thead><tbody>' +
           (urgent.length ? urgent.map(function(it){
@@ -1131,6 +1227,7 @@
       document.getElementById("stockSearch").addEventListener("input", renderStock);
       document.getElementById("supplierFilter").addEventListener("change", renderStock);
       document.getElementById("statusFilter").addEventListener("change", renderStock);
+      document.getElementById("stockShowMore").addEventListener("click", function(){ state.stockShown += 50; renderStock(); });
 
       // ---------- Demo data on/off ----------
       function setDemo(on, silent){
@@ -1327,6 +1424,9 @@
           if (!j.items || !j.items.length) throw new Error("Server ne live items nahi bheje (item_count: " + (j.item_count || 0) + ").");
           state.liveItems = j.items;
           state.liveFetchedAt = j.fetched_at || stampNow();
+          // v1.3.1: server ne import par exact stock-entry filter laga
+          // diya ho to HTML ka proxy filter dobara nahi lagta.
+          state.serverFiltered = !!j.stock_entry_filtered;
           hideLiveError();
           return j;
         });
@@ -1336,8 +1436,8 @@
           state.demo = false;
           state.order = {}; state.overrides = {}; state.openCalc = {}; state.approved = false;
           renderAll();
-          logAudit("Live data load hua — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
-          toast("Live data aa gaya — POS_DB se " + j.items.length + " items dikh rahe hain.");
+          logAudit("Live data load hua — POS_DB se " + j.items.length + " items mein se " + data().length + " stock-entry wali dikh rahi hain (" + state.liveFetchedAt + ").");
+          toast("Live data aa gaya — " + data().length + " stock-entry wali medicines (" + j.items.length + " catalogue mein se).");
         }).catch(function(err){
           showLiveError("Server se rabta nahi ho saka: " + err.message + " — Server nahi chal raha — PharmaServer.exe chalao (start-server.bat se).");
         });
@@ -1358,7 +1458,7 @@
         }).then(function(j){
           state.demo = false;
           renderAll();
-          toast("Live data refresh ho gaya — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
+          toast("Live data refresh ho gaya — " + data().length + " stock-entry wali medicines (" + j.items.length + " catalogue mein se).");
         }).catch(function(err){
           showLiveError("Refresh fail: " + err.message + " — Server nahi chal raha ho to PharmaServer.exe chalao (start-server.bat se).");
           toast("Refresh fail — " + err.message + " Current data barqarar hai.");

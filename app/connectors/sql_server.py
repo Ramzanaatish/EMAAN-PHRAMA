@@ -100,6 +100,22 @@ DRIVER_FALLBACK = "ODBC Driver 17 for SQL Server"
 # (90) as three separate aggregations, each re-discovering the columns.
 SALES_WINDOWS = (7, 30, 90)
 
+# Sales date column: SmilePOS does not pin the date column name down,
+# and a column that merely EXISTS may hold no usable dates (v1.3.0
+# showed net sales 0 for every item although vouchers exist). The
+# connector probes each candidate for rows inside the last 90 days and
+# uses the first one that actually has data; VoucherDate stays the
+# fallback so behaviour never changes when it is the real column.
+DATE_CANDIDATES = (
+    "VoucherDate",
+    "Date",
+    "SaleDate",
+    "VchDate",
+    "Voucher_Date",
+    "EntryDate",
+    "CreatedDate",
+)
+
 
 def detect_driver() -> str | None:
     """Newest installed SQL Server ODBC driver, or None when pyodbc or
@@ -164,6 +180,10 @@ class SqlServerConnector(PosConnector):
         self.driver = driver
         self.timeout = timeout
         self._columns_cache: dict[str, list[str]] = {}
+        # Diagnostics from the last sales / stock-entry fetch (counts
+        # only, never item data) — read by the import for the server log.
+        self.last_sales_diag: dict | None = None
+        self.last_stock_entry_diag: dict | None = None
 
     def resolved_driver(self) -> str:
         """Driver this connector will use (detected, explicit, fallback)."""
@@ -369,11 +389,79 @@ class SqlServerConnector(PosConnector):
             conn=conn,
         )
 
+    def _count(self, sql: str, conn=None) -> int:
+        """Single COUNT(*) query, as an int (0 when the result is empty)."""
+        rows = self._query(sql, conn=conn)
+        return int(rows[0]["n"]) if rows else 0
+
+    def _sale_date_expr(self, column: str) -> str:
+        """A date expression that also parses dd/mm/yyyy strings.
+
+        SmilePOS date columns are usually real dates (the style is then
+        ignored), but a varchar date in dd/mm/yyyy form only parses with
+        style 103. TRY_CONVERT returns NULL instead of failing, so an
+        unparseable value simply does not count. The voucher alias `v`
+        is used because every caller joins SaleVoucher as `v`.
+        """
+        return (
+            f"COALESCE(TRY_CONVERT(date, v.[{column}]), "
+            f"TRY_CONVERT(date, v.[{column}], 103))"
+        )
+
+    def _recent_joined_count(self, column: str, days: int, conn=None) -> int:
+        """SaleDetail rows whose voucher date falls in the last `days` days.
+
+        v1.3.3: the probe counts JOINED detail rows, not vouchers alone.
+        A date column can hold recent vouchers while the VoucherNo join
+        drops every detail row (format/type mismatch) — counting vouchers
+        would then pick a column whose sales still come back 0. Counting
+        the join proves the whole pipeline (join + date parse + window).
+        """
+        return self._count(
+            "SELECT COUNT(*) AS n FROM [dbo].[SaleDetail] d "
+            "INNER JOIN [dbo].[SaleVoucher] v "
+            "ON v.[VoucherNo] = d.[VoucherNo] "
+            "WHERE {expr} >= DATEADD(day, -{days}, "
+            "CAST(GETDATE() AS date))".format(
+                expr=self._sale_date_expr(column), days=days
+            ),
+            conn=conn,
+        )
+
+    def _pick_sales_date_column(self, voucher_columns, conn=None):
+        """First date column with actual JOINED sales in the last 90 days.
+
+        Falls back to VoucherDate when no candidate has recent data, so
+        a database with genuinely no recent sales behaves exactly as
+        before (all windows 0) instead of failing. Returns None when
+        no date column exists at all.
+        """
+        present = [c for c in DATE_CANDIDATES if c in voucher_columns]
+        for column in present:
+            try:
+                if self._recent_joined_count(column, 90, conn=conn) > 0:
+                    return column
+            except Exception:  # noqa: BLE001 - probe is best-effort
+                continue
+        if "VoucherDate" in voucher_columns:
+            return "VoucherDate"
+        return present[0] if present else None
+
     def fetch_sales_all(self, conn=None) -> list[dict]:
         """Net sales per item for the 7/30/90-day windows in ONE query.
 
         One GROUP BY with conditional SUMs, instead of three separate
         aggregations that each re-discovered the columns.
+
+        v1.3.3: the probe counts JOINED detail rows (not vouchers alone)
+        and dates parse with a dd/mm/yyyy fallback (style 103), so a
+        column with recent vouchers but a broken join, or varchar dates,
+        no longer silently yields 0. The query also returns each item's
+        last sale date (MAX over all vouchers, not just 90 days) — the
+        "most recently out of stock first" sort signal. Counts land in
+        self.last_sales_diag (detail rows, joined rows, rows in the
+        90-day window, items with sales, items with a last-sale date)
+        for the server log.
         """
         detail_columns = self.list_columns("SaleDetail", conn=conn)
         qty = next((c for c in QUANTITY_CANDIDATES if c in detail_columns), None)
@@ -383,24 +471,75 @@ class SqlServerConnector(PosConnector):
                 "SaleDetail has no usable quantity/item columns. "
                 f"Actual columns: {', '.join(detail_columns)}"
             )
-        voucher_columns = self.list_columns("SaleVoucher", conn=conn)
-        if "VoucherNo" not in voucher_columns or "VoucherDate" not in voucher_columns:
+        if "VoucherNo" not in detail_columns:
             raise ConnectorError(
-                "SaleVoucher mein VoucherNo/VoucherDate nahi milay. "
+                "SaleDetail mein VoucherNo nahi mila — sale ko voucher se "
+                f"jora nahi ja sakta. Actual columns: {', '.join(detail_columns)}"
+            )
+        voucher_columns = self.list_columns("SaleVoucher", conn=conn)
+        if "VoucherNo" not in voucher_columns:
+            raise ConnectorError(
+                "SaleVoucher mein VoucherNo nahi mila. "
                 f"Actual columns: {', '.join(voucher_columns)}"
             )
+        date_column = self._pick_sales_date_column(voucher_columns, conn=conn)
+        if date_column is None:
+            raise ConnectorError(
+                "SaleVoucher mein koi tareekh (date) column nahi mila. "
+                f"Actual columns: {', '.join(voucher_columns)}"
+            )
+        diag = {
+            "date_column": date_column,
+            "qty_column": qty,
+            "item_column": item,
+            "detail_rows": None,
+            "joined_rows": None,
+            "in_window_90d": None,
+            "items_with_sales": 0,
+            "items_with_last_sale": 0,
+        }
+        self.last_sales_diag = diag
+        date_expr = self._sale_date_expr(date_column)
+        try:
+            diag["detail_rows"] = self._count(
+                "SELECT COUNT(*) AS n FROM [dbo].[SaleDetail]", conn=conn
+            )
+        except Exception:  # noqa: BLE001 - diagnostics are best-effort
+            pass
+        try:
+            diag["joined_rows"] = self._count(
+                "SELECT COUNT(*) AS n FROM [dbo].[SaleDetail] d "
+                "INNER JOIN [dbo].[SaleVoucher] v "
+                "ON v.[VoucherNo] = d.[VoucherNo]",
+                conn=conn,
+            )
+        except Exception:  # noqa: BLE001 - diagnostics are best-effort
+            pass
+        try:
+            diag["in_window_90d"] = self._count(
+                "SELECT COUNT(*) AS n FROM [dbo].[SaleDetail] d "
+                "INNER JOIN [dbo].[SaleVoucher] v "
+                "ON v.[VoucherNo] = d.[VoucherNo] "
+                "WHERE {expr} >= DATEADD(day, -90, "
+                "CAST(GETDATE() AS date))".format(expr=date_expr),
+                conn=conn,
+            )
+        except Exception:  # noqa: BLE001 - diagnostics are best-effort
+            pass
         cases = ", ".join(
-            "ISNULL(SUM(CASE WHEN v.[VoucherDate] >= DATEADD(day, -{days}, "
-            "CAST(GETDATE() AS date)) THEN d.[{qty}] ELSE 0 END), 0) AS Net{days}".format(
-                days=days, qty=qty
+            "ISNULL(SUM(CASE WHEN {expr} >= "
+            "DATEADD(day, -{days}, CAST(GETDATE() AS date)) "
+            "THEN d.[{qty}] ELSE 0 END), 0) AS Net{days}".format(
+                days=days, qty=qty, expr=date_expr
             )
             for days in SALES_WINDOWS
         )
-        return self._query(
+        rows = self._query(
             "SELECT d.["
             + item
             + "] AS ItemCode, "
             + cases
+            + ", MAX({expr}) AS LastSale".format(expr=date_expr)
             + " FROM [dbo].[SaleDetail] d "
             "INNER JOIN [dbo].[SaleVoucher] v ON v.[VoucherNo] = d.[VoucherNo] "
             "GROUP BY d.["
@@ -408,6 +547,64 @@ class SqlServerConnector(PosConnector):
             + "]",
             conn=conn,
         )
+        diag["items_with_sales"] = sum(
+            1 for row in rows if int(row.get("Net30") or 0) > 0
+        )
+        diag["items_with_last_sale"] = sum(
+            1 for row in rows if row.get("LastSale")
+        )
+        return rows
+
+    def fetch_stock_entries(self, conn=None) -> dict[str, int]:
+        """{ItemCode: entry_count} — purchase lines + opening-stock rows.
+
+        v1.3.1: "stock entry" = the medicine was actually stocked at
+        least once: a PurchaseDetail line (purchase / goods received)
+        or an OpeningStock row. A missing table or item column
+        contributes 0 and never fails the refresh; the breakdown lands
+        in self.last_stock_entry_diag for the server log.
+        """
+        entries: dict[str, int] = {}
+        diag = {
+            "purchase_items": 0,
+            "opening_items": 0,
+            "purchase_rows": 0,
+            "opening_rows": 0,
+            "items_with_entry": 0,
+        }
+        self.last_stock_entry_diag = diag
+        for table, key in (("PurchaseDetail", "purchase"), ("OpeningStock", "opening")):
+            try:
+                columns = self.list_columns(table, conn=conn)
+            except Exception:  # noqa: BLE001 - a missing table gives 0
+                continue
+            item = next((c for c in ITEM_CANDIDATES if c in columns), None)
+            if item is None:
+                continue
+            try:
+                rows = self._query(
+                    "SELECT [{item}] AS ItemCode, COUNT(*) AS EntryCount "
+                    "FROM [dbo].[{table}] GROUP BY [{item}]".format(
+                        item=item, table=table
+                    ),
+                    conn=conn,
+                )
+            except Exception:  # noqa: BLE001 - a bad table gives 0
+                continue
+            codes = 0
+            total = 0
+            for row in rows:
+                code = row.get("ItemCode")
+                if code is None:
+                    continue
+                count = int(row.get("EntryCount") or 0)
+                entries[str(code)] = entries.get(str(code), 0) + count
+                codes += 1
+                total += count
+            diag[key + "_items"] = codes
+            diag[key + "_rows"] = total
+        diag["items_with_entry"] = len(entries)
+        return entries
 
     def fetch_sales(self, days: int, conn=None) -> list[dict]:
         """Net sales per item over the last `days` days.

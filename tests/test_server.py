@@ -10,6 +10,7 @@ from app.core.errors import ConnectorError
 from app.web import create_app, product_to_html_item
 
 # Field names the dashboard HTML's demo rows use (see web/index.html ITEMS).
+# v1.3.3 adds lastSale (last sale date, ISO or null) for the urgency sort.
 HTML_ITEM_FIELDS = {
     "name",
     "pack",
@@ -24,6 +25,7 @@ HTML_ITEM_FIELDS = {
     "max",
     "cost",
     "packSize",
+    "lastSale",
 }
 
 

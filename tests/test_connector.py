@@ -72,6 +72,10 @@ def test_fetch_sales_discovers_quantity_column():
         [{"COLUMN_NAME": "ID"}, {"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "ItemCode"},
          {"COLUMN_NAME": "Quantity"}],
         [{"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "VoucherDate"}],
+        [{"n": 5}],   # date probe: VoucherDate has recent rows
+        [{"n": 10}],  # diag: SaleDetail rows
+        [{"n": 10}],  # diag: rows joined with a voucher
+        [{"n": 8}],   # diag: rows inside the 90-day window
         [{"ItemCode": "A", "Net7": 2, "Net30": 10, "Net90": 25}],
     ])
     rows = connector.fetch_sales(30)

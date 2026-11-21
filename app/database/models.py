@@ -46,6 +46,10 @@ class Product(Base):
     max_level = Column(Integer, default=0)
     cost = Column(Integer, default=0)
     pack_size = Column(Integer, default=1)
+    # v1.3.3: last sale date (ISO "YYYY-MM-DD", "" when unknown) — the
+    # "most recently out of stock first" sort signal, from
+    # fetch_sales_all's MAX sale date per item.
+    last_sale_date = Column(String(32), default="")
     manufacturer = Column(String(128), default="")
     item_group = Column(String(128), default="")
     expiry_batch = Column(String(64), default="")
@@ -76,6 +80,7 @@ class Product(Base):
             max_level=self.max_level,
             cost=self.cost,
             pack_size=self.pack_size,
+            last_sale_date=self.last_sale_date or "",
             item_code=self.item_code,
             manufacturer=self.manufacturer,
             item_group=self.item_group,

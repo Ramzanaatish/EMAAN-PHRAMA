@@ -1,5 +1,96 @@
 # Changelog
 
+## v1.3.3 — 2026-11-21
+
+Out-of-stock-first urgency sort + suggestions audit (Nelson, 21 Nov
+2026, live screenshot: proxy filter ke baad TOTAL ITEMS 2,535 lekin
+OUT OF STOCK 0 — proxy ne out-of-stock medicines hi chhupa di thin).
+
+- **Root cause (proxy):** out-of-stock medicine ke sab fields 0 hote
+  hain (stock/net30/reorder/max/incoming/unusable) — /api/data ke
+  fields mein koi nishan nahi — is liye proxy use "catalogue filler"
+  samajh kar chhupa deta tha. Asal fix server-side exact filter hai
+  (PurchaseDetail/OpeningStock, v1.3.1): khareedi hui item chahe
+  fields zero hon, import mein rehti hai. Is release mein us filter
+  ka test hai (zero-field item with purchase entry kept).
+- **Urgency sort:** All Stock, Reorder Suggestions, attention list aur
+  report ki Urgent table mein ab usable stock 0 wali medicines pehle,
+  phir sab se recent sale wali pehle (per-item last sale date, MAX
+  sale date — server bhejta hai, HTML `lastSale` par sort karta hai,
+  purana server na bheje to days-left fallback). Phir expiry jald wali
+  pehle, phir kam din ka cover pehle. Formula (ADS/Target/Suggested)
+  nahi badla — sirf order badla. "Aakhri sale" tareekh row mein nazar
+  aati hai. Research: pharmacy reorder triage (inventory-reorder-crew),
+  expiry categories (PharmaGuard), ABC/FSN velocity (MedXtore, ABC-XYZ)
+  — detail CHANGELOG ke neeche aur report mein.
+- **Suggestions audit:** date probe ab JOINED SaleDetail rows ginta
+  hai (voucher mein recent date ho lekin VoucherNo join rows giraye to
+  pehle probe phir bhi column chun leta tha), aur tareekh dd/mm/yyyy
+  strings ke liye style 103 fallback hai. Last-sale diagnostics bhi
+  server log mein aati hain (items with last sale). Agar live mein
+  phir bhi 0 ho to `[refresh]` line saaf bataye gi (joined rows /
+  in-window rows) ke data mein sale nahi hai — kuch fake nahi kiya.
+- **Store migration:** purani SQLite file kholne par missing columns
+  (jaise last_sale_date) khud ADD COLUMN ho jate hain.
+- **GitHub research (21 Nov 2026):** inventory-reorder-crew
+  (Namitha-C-Anto) — triage: expired → replacement, <15 din expiry →
+  urgent, <30 din → expiring-soon; priority assignment + human approval
+  (LLM/agents stack nahi liya — offline PC, API keys nahi). PharmaGuard
+  (AHMED-TECH-01) — expiry categories + ROP = ADS × lead time + safety
+  stock (hamare formula jaisa — formula nahi badla). MedXtorePharmacyV2
+  — ABC 70/20/10 revenue + turnover (cost 0 hai live, is liye revenue
+  ABC nahi ho saka; units-based FSN recency sort mein hi aa gaya).
+  KinetiRx (Raktim94) — shortage book → supplier-wise PO (hamara
+  draft PO jaisa — shortage-first order apnaya). ABC-XYZ article
+  (NaijaDataProfessor) — demand consistency AX/AY/AZ (sales aate hi
+  recency + fraction_7/90 se milta hai). Curo/ShbairPharma — fast/slow
+  + expiry alerts (same FSN/expiry conclusion). ML forecasting
+  (Tata 1mg) aur SupplyNetPy simulation — offline single pharmacy ke
+  liye heavy, reject.
+- Tests: 147 passed (136 + 11 naye v1.3.3 tests) + Node se HTML ke
+  apne sort functions ke 7 functional checks pass.
+
+## v1.3.2 — 2026-11-21
+
+All Stock memory cap (Nelson: "ye file run hony pr memory q consume
+krta h itna..?"). HTML All Stock tab saari rows aik saath render karta
+tha — 32,952 items = hazaron DOM rows, browser ki memory bhar jati thi
+(desktop app mein 200 rows ki cap pehle se hai).
+
+- **50-row cap:** All Stock mein aik waqt mein sirf 50 rows dikhti
+  hain; neeche "Show more" button har dafa mazeed 50 dikhata hai, aur
+  count batata hai ("50 / 3,240 dikhaye ja rahe hain"). Search ya
+  filter badle to dobara 50 se shuru hota hai.
+- Tests: 136 passed (135 + 1 naya v1.3.2 test).
+
+## v1.3.1 — 2026-11-21
+
+Stock-entry filter + suggestions fix (Nelson, 21 Nov 2026, live HTML
+screenshots: 32,952 catalogue items, OUT OF STOCK 30,416, lekin NET
+UNITS SOLD (30 din) 0 aur 0 reorder suggestions).
+
+- **Stock-entry filter:** sirf wo medicines dikhti hain jin ki stock
+  entry pehle kam-az-kam 1 dafa hui ho. "Stock entry" = PurchaseDetail
+  line (purchase / goods received) ya OpeningStock row. Server import
+  par exact filter lagata hai (KPIs, All Stock, suggestions, report,
+  desktop app — sab mein), aur HTML mein proxy filter bhi hai jo
+  /api/data ke fields se kaam karta hai (stock > 0 ya net30 > 0 ya
+  reorder/max level set ya incoming/unusable > 0). Server ne filter
+  laga diya ho to HTML proxy dobara nahi lagta. Filter fail-open hai:
+  entries na milen to sab kuch import hota hai, chhupaya nahi jata.
+- **Suggestions fix:** sales query ab tareekh wala column assume nahi
+  karti — har candidate column ko pichle 90 din ki rows ke liye probe
+  karti hai aur pehla column jis mein asal data ho use karti hai
+  (VoucherDate fallback). Saath mein diagnostics: SaleDetail rows,
+  joined rows, 90-day window rows, items with sales — server window
+  mein Refresh ke baad nazar aate hain, aur `/api/data` mein bhi.
+- **Ghalat khaali message theek:** suggestions khaali hon to page ab
+  saaf batata hai ke sales data 0 hai (ADS 0 → target 0) ya waqai
+  stock kaafi hai. Filter se sab chhup jayein to bhi saaf message
+  hai — "koi data nahi" nahi.
+- Tests: 135 passed (125 + 10 naye v1.3.1 tests). Shart: akele HTML file
+  SQL Server se nahi jud sakti — server chalta rehna lazmi hai.
+
 ## v1.3.0 — 2026-11-21
 
 HTML file + server connector ("html file ho and sath main server connector

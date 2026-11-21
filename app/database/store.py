@@ -39,8 +39,39 @@ class Store:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(f"sqlite:///{self.db_path}", future=True)
         Base.metadata.create_all(self.engine)
+        self._ensure_model_columns()
         self._sessions = sessionmaker(bind=self.engine, future=True)
         self._ensure_default_settings()
+
+    def _ensure_model_columns(self) -> None:
+        """ADD COLUMN for model fields missing from an older database file.
+
+        create_all() only creates missing TABLES — it never adds a column
+        to a table that already exists. Without this, a database file made
+        by an older version (e.g. products without last_sale_date, added
+        in v1.3.3) would fail every insert with "no such column". Only
+        nullable columns are added (existing rows get NULL, which the code
+        already treats as "unknown"); anything else is left alone.
+        """
+        from sqlalchemy import inspect, text
+
+        inspector = inspect(self.engine)
+        with self.engine.begin() as conn:
+            for table in Base.metadata.tables.values():
+                existing = {
+                    column["name"]
+                    for column in inspector.get_columns(table.name)
+                }
+                for column in table.columns:
+                    if column.name in existing or not column.nullable:
+                        continue
+                    coltype = column.type.compile(dialect=self.engine.dialect)
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE "{table.name}" '
+                            f'ADD COLUMN "{column.name}" {coltype}'
+                        )
+                    )
 
     def session(self) -> Session:
         return self._sessions()
