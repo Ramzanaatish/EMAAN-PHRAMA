@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.1 — 2026-11-21
+
+Smooth startup ("load hony main time ly rha hai, preview main issue hai,
+RAM par ziada bojh na daalo" — Nelson, 21 Nov 2026).
+
+- **Window pehle, data baad mein:** pehle poora refresh + paanchon tabs
+  bharne ke baad window khulti thi, to khaali screen par wait karna
+  parta tha. Ab pehle splash screen (EMAN logo + Loading…) aati hai,
+  window foran khulti hai, aur pehla refresh uske baad hota hai.
+- **Lazy tabs:** sirf wohi tab render hota hai jo screen par hai —
+  baaki chaar tabs pehli dafa kholne par bharte hain. 3,000 items par
+  startup par banne wale table rows 200 + 200 se 0 ho gaye, report
+  HTML tab kholne tak banti hi nahi.
+- **Halki RAM:** startup par peak RAM 3,000 items par 142 MB se 126 MB;
+  window banne ka time 0.70 s se 0.13 s.
+- **Table fill ek repaint mein:** reorder/stock tables bharte waqt
+  har row par repaint band — bari list par scroll/render smooth.
+- Tests: 118 passed (114 + 4 naye startup tests).
+
 ## v1.2.0 — 2026-11-21
 
 POS fetch + loading fix ("proper work nahi kar raha, heavy hai, data

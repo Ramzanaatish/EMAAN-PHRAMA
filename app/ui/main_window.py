@@ -217,12 +217,27 @@ class MainWindow(QMainWindow):
         self._test_worker: PosWorker | None = None
         self._last_items = []
         self._last_suggestions = []
+        self._last_override_details: dict = {}
         self._supplier_options: list[str] = []
+        # v1.2.1 smooth startup: only the tab on screen is rendered;
+        # the other four render the first time they are opened. The
+        # first refresh runs after the window paints (singleShot), so
+        # the window appears at once instead of after all data is
+        # computed and all five tabs are filled.
+        self._refresh_done = False
+        self._dirty_tabs: set[int] = set(range(5))
         self.setWindowTitle(f"{PHARMACY_NAME} — Pharma Purchase Assistant")
         self.setStyleSheet(STYLESHEET)
         self.resize(1240, 860)
         self._build_shell()
-        self.refresh_all()
+        self.statusBar().showMessage("Loading…")
+        # First refresh runs after the window paints. Kept as an object
+        # (not singleShot) so a manual refresh_all() before the loop
+        # starts cancels the pending one instead of refreshing twice.
+        self._first_refresh_timer = QTimer(self)
+        self._first_refresh_timer.setSingleShot(True)
+        self._first_refresh_timer.timeout.connect(self.refresh_all)
+        self._first_refresh_timer.start(0)
 
     # ------------------------------------------------------------------ shell
     def _build_shell(self):
@@ -370,6 +385,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self._build_stock_tab(), "All Stock")
         self.tabs.addTab(self._build_report_tab(), "Daily Report (PDF)")
         self.tabs.addTab(self._build_settings_tab(), "Settings / Backup / Audit")
+        self.tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self.tabs)
 
         # V2 / later section (planned only, no working controls)
@@ -468,6 +484,8 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ refresh
     def refresh_all(self) -> None:
+        if getattr(self, "_first_refresh_timer", None) is not None:
+            self._first_refresh_timer.stop()
         demo = stock_service.is_demo(self.store)
         self.demo_toggle.setChecked(demo)
         self.demo_state.setText("ON" if demo else "OFF")
@@ -500,12 +518,43 @@ class MainWindow(QMainWindow):
         )
         self._last_items = items
         self._last_suggestions = suggestions
+        self._last_override_details = override_details
         self._render_kpis(items, overrides)
-        self._render_overview(items)
-        self._render_reorder(suggestions)
-        self._render_stock()
-        self._render_report(items, suggestions, override_details)
-        self._render_settings()
+        # v1.2.1: render only the tab on screen; the rest render when
+        # first opened (see _on_tab_changed). Rendering all five tabs
+        # up front — two 200-row tables plus the full report — was the
+        # startup freeze on a real catalogue.
+        self._render_tab(self.tabs.currentIndex())
+        self._dirty_tabs = {
+            index for index in range(self.tabs.count())
+            if index != self.tabs.currentIndex()
+        }
+        self._refresh_done = True
+        self.statusBar().showMessage("Ready")
+
+    def _render_tab(self, index: int) -> None:
+        """Render one tab from the cached refresh data."""
+        if index == 0:
+            self._render_overview(self._last_items)
+        elif index == 1:
+            self._render_reorder(self._last_suggestions)
+        elif index == 2:
+            self._render_stock()
+        elif index == 3:
+            self._render_report(
+                self._last_items, self._last_suggestions,
+                self._last_override_details,
+            )
+        elif index == 4:
+            self._render_settings()
+        self._dirty_tabs.discard(index)
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Render a tab the first time it is opened (lazy rendering)."""
+        if not self._refresh_done:
+            return
+        if index in self._dirty_tabs:
+            self._render_tab(index)
 
     def _render_kpis(self, items, overrides) -> None:
         data = stock_service.kpis(
@@ -738,6 +787,8 @@ class MainWindow(QMainWindow):
     def _render_reorder(self, suggestions) -> None:
         rows = suggestions
         table = self.reorder_table
+        # Bulk fill without a repaint per row — the table repaints once.
+        table.setUpdatesEnabled(False)
         table.setRowCount(0)
         if not self._last_items:
             self.reorder_summary.setText("")
@@ -749,6 +800,7 @@ class MainWindow(QMainWindow):
             )
             table.setCellWidget(0, 0, empty)
             self._render_order_box()
+            table.setUpdatesEnabled(True)
             return
         # Draft codes once — the old code ran one DB query per row.
         draft_codes: set[str] = set()
@@ -809,6 +861,7 @@ class MainWindow(QMainWindow):
                if hidden > 0 else "")
         )
         self._render_order_box()
+        table.setUpdatesEnabled(True)
 
     def _open_calculation(self, item) -> None:
         dialog = CalculationDialog(
@@ -1063,6 +1116,8 @@ class MainWindow(QMainWindow):
             items=self._last_items,
         )
         table = self.stock_table
+        # Bulk fill without a repaint per row — the table repaints once.
+        table.setUpdatesEnabled(False)
         shown = rows[: self.MAX_STOCK_ROWS]
         table.setRowCount(len(shown))
         for row_index, item in enumerate(shown):
@@ -1087,6 +1142,7 @@ class MainWindow(QMainWindow):
             f"…aur {hidden:,} items — search ya filter se narrow karein."
             if hidden > 0 else ""
         )
+        table.setUpdatesEnabled(True)
 
     # ------------------------------------------------------------------ report tab
     def _build_report_tab(self) -> QWidget:

@@ -32,7 +32,17 @@ def window(tmp_path, qt_app):
     seed_demo_data(store)
     win = MainWindow(store)
     win.show()
+    # v1.2.1: the first refresh is deferred until the window paints
+    # (singleShot), and only the visible tab renders — tests run
+    # without an event loop, so kick the refresh off by hand.
+    win.refresh_all()
     return win
+
+
+def _show_tab(window, index):
+    """Select a tab; lazy rendering fills it synchronously."""
+    window.tabs.setCurrentIndex(index)
+    QApplication.processEvents()
 
 
 def test_window_title_and_kpis(window):
@@ -52,10 +62,12 @@ def test_cover_options_include_7_days(window):
 
 
 def test_reorder_table_has_18_rows(window):
+    _show_tab(window, 1)
     assert window.reorder_table.rowCount() == 18
 
 
 def test_cover_7_recalculates(window):
+    _show_tab(window, 1)
     QTest.mouseClick(window.cover_buttons[7], Qt.LeftButton)
     assert window.cover_days == 7
     assert window.reorder_table.rowCount() == 15
@@ -65,14 +77,18 @@ def test_cover_7_recalculates(window):
 def test_demo_toggle_off_clears_everything(window):
     window.demo_toggle.setChecked(False)
     assert window.kpi_cards["total_items"].value.text() == "—"
+    _show_tab(window, 2)
     assert window.stock_table.rowCount() == 0
+    _show_tab(window, 3)
     assert "Live data will appear" in window.report_browser.toPlainText()
     window.demo_toggle.setChecked(True)
+    _show_tab(window, 1)
     assert window.reorder_table.rowCount() == 18
 
 
 def test_draft_add_and_approve(window):
     # Click the "+ Draft" button of the first reorder row.
+    _show_tab(window, 1)
     cell = window.reorder_table.cellWidget(0, 8)
     buttons = cell.findChildren(type(window.approve_button))
     draft_button = next(b for b in buttons if "+ Draft" in b.text())
