@@ -42,8 +42,64 @@ def disable_demo(store) -> int:
     return removed
 
 
+def _fetch_sales(connector, conn):
+    """Sales per item for the 7/30/90-day windows, as {code: row}.
+
+    Prefers the connector's single-query fetch_sales_all; falls back
+    to three fetch_sales calls for older connectors / test fakes that
+    do not have it yet.
+    """
+    fetch_all = getattr(connector, "fetch_sales_all", None)
+    if fetch_all is not None:
+        rows = fetch_all(conn=conn) if conn is not None else fetch_all()
+        return {row["ItemCode"]: row for row in rows}
+    merged: dict[str, dict] = {}
+    for days, key in ((7, "Net7"), (30, "Net30"), (90, "Net90")):
+        if conn is not None:
+            rows = connector.fetch_sales(days, conn=conn)
+        else:
+            rows = connector.fetch_sales(days)
+        for row in rows:
+            merged.setdefault(row["ItemCode"], {})[key] = int(row["NetQty"])
+    return merged
+
+
+def _fetch_all(connector):
+    """Fetch every POS dataset, reusing one connection when the
+    connector supports sessions (SqlServerConnector.session).
+
+    Returns (products, stock_rows, suppliers, sales). Connectors
+    without a session (older fakes) keep the old per-query behaviour.
+    """
+    session_cm = getattr(connector, "session", None)
+    if session_cm is not None:
+        with session_cm() as conn:
+            return _fetch_all_on_connection(connector, conn)
+    return _fetch_all_on_connection(connector, None)
+
+
+def _fetch_all_on_connection(connector, conn):
+    kwargs = {"conn": conn} if conn is not None else {}
+    products = connector.fetch_products(**kwargs)
+    stock_rows = {
+        row["ItemCode"]: row for row in connector.fetch_stock(**kwargs)
+    }
+    suppliers = {
+        row["AccountCode"]: row["AccountName"]
+        for row in connector.fetch_suppliers(**kwargs)
+    }
+    sales = _fetch_sales(connector, conn)
+    return products, stock_rows, suppliers, sales
+
+
 def refresh_from_pos(store, connector) -> dict:
-    """One full read-only import from POS_DB. Returns a summary dict."""
+    """One full read-only import from POS_DB. Returns a summary dict.
+
+    v1.2.0: ONE ODBC connection for the whole refresh (the old code
+    opened 11: every list_columns + every fetch), ONE sales query for
+    the 7/30/90-day windows, and ONE supplier lookup instead of one
+    per product row.
+    """
     started = datetime.now()
     log = RefreshLog(started_at=started, status="running")
     with store.session() as session:
@@ -51,17 +107,16 @@ def refresh_from_pos(store, connector) -> dict:
         session.commit()
         log_id = log.id
     try:
-        products = connector.fetch_products()
-        stock_rows = {row["ItemCode"]: row for row in connector.fetch_stock()}
-        suppliers = {row["AccountCode"]: row["AccountName"] for row in connector.fetch_suppliers()}
-        sales_30 = {row["ItemCode"]: int(row["NetQty"]) for row in connector.fetch_sales(30)}
-        sales_7 = {row["ItemCode"]: int(row["NetQty"]) for row in connector.fetch_sales(7)}
-        sales_90 = {row["ItemCode"]: int(row["NetQty"]) for row in connector.fetch_sales(90)}
+        products, stock_rows, suppliers, sales = _fetch_all(connector)
 
         with store.session() as session:
             session.query(Product).filter(Product.data_source == "live").delete(
                 synchronize_session=False
             )
+            existing_suppliers = {
+                row[0] for row in session.query(Supplier.name).all()
+            }
+            new_suppliers: set[str] = set()
             for row in products:
                 code = str(row.get("ItemCode") or "").strip()
                 if not code:
@@ -75,7 +130,10 @@ def refresh_from_pos(store, connector) -> dict:
                     stock = int(stock_view.get("InQty") or 0) - int(
                         stock_view.get("OutQty") or 0
                     )
-                net_30 = sales_30.get(code, 0)
+                sales_row = sales.get(code, {})
+                net_30 = int(sales_row.get("Net30") or 0)
+                net_7 = int(sales_row.get("Net7") or 0)
+                net_90 = int(sales_row.get("Net90") or 0)
                 session.add(
                     Product(
                         item_code=code,
@@ -86,10 +144,10 @@ def refresh_from_pos(store, connector) -> dict:
                         unusable=0,
                         incoming=0,
                         net_30=net_30,
-                        net_7=sales_7.get(code),
-                        net_90=sales_90.get(code),
-                        fraction_7=(sales_7.get(code, 0) / net_30) if net_30 else 0.0,
-                        fraction_90=(sales_90.get(code, 0) / net_30) if net_30 else 0.0,
+                        net_7=net_7,
+                        net_90=net_90,
+                        fraction_7=(net_7 / net_30) if net_30 else 0.0,
+                        fraction_90=(net_90 / net_30) if net_30 else 0.0,
                         reorder_level=int(row.get("ReOrderLevel") or 0),
                         max_level=int(row.get("MaxLevel") or 0),
                         cost=0,
@@ -98,10 +156,12 @@ def refresh_from_pos(store, connector) -> dict:
                         data_source="live",
                     )
                 )
-                if supplier_name and not session.query(Supplier).filter_by(
-                    name=supplier_name
-                ).first():
-                    session.add(Supplier(name=supplier_name))
+                if supplier_name and supplier_name not in existing_suppliers:
+                    new_suppliers.add(supplier_name)
+            if new_suppliers:
+                session.add_all(
+                    Supplier(name=name) for name in sorted(new_suppliers)
+                )
             session.commit()
             imported = session.query(Product).filter(
                 Product.data_source == "live"

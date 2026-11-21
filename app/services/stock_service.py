@@ -2,6 +2,12 @@
 
 Reads the assistant's own SQLite copy (demo or live). The dashboard never
 queries POS_DB directly; only the scheduled/manual refresh does that.
+
+v1.2.0: every view function accepts a pre-loaded `items` list. The main
+window loads the products ONCE per refresh and passes the list down —
+the old code re-ran a full SELECT * + object build ~10 times per
+refresh (once per render function), which is what made every click
+feel heavy on a real catalogue.
 """
 
 from __future__ import annotations
@@ -38,12 +44,32 @@ def _overrides(store) -> dict[str, int]:
     return result
 
 
-def kpis(store, analysis_days: int, cover_days: int, safety_days: int) -> dict:
+def override_details(store) -> dict[str, dict]:
+    """Latest override quantity + reason per item code, in ONE query.
+
+    The old suggestions() code asked the database for the reason of
+    every single suggestion row (one query per row). This loads all
+    Override rows once; the latest row per code wins for both fields.
+    """
+    from ..database.models import Override
+
+    result: dict[str, dict] = {}
+    with store.session() as session:
+        for row in session.query(Override).order_by(Override.id).all():
+            result[row.item_code] = {"qty": row.qty, "reason": row.reason}
+    return result
+
+
+def _items(store, items=None) -> list[ItemFigures]:
+    return items if items is not None else visible_items(store)
+
+
+def kpis(store, analysis_days: int, cover_days: int, safety_days: int, items=None, overrides=None) -> dict:
     """The six KPI cards, mirroring the HTML preview."""
-    items = visible_items(store)
+    items = _items(store, items)
     if not items:
         return {}
-    overrides = _overrides(store)
+    overrides = overrides if overrides is not None else _overrides(store)
     out = sum(1 for item in items if purchase.status_of(item) == purchase.STATUS_OUT)
     critical = sum(
         1 for item in items if purchase.status_of(item) == purchase.STATUS_CRITICAL
@@ -75,36 +101,36 @@ def kpis(store, analysis_days: int, cover_days: int, safety_days: int) -> dict:
     }
 
 
-def demand_ranking(store, analysis_days: int, limit: int = 10) -> list[ItemFigures]:
+def demand_ranking(store, analysis_days: int, limit: int = 10, items=None) -> list[ItemFigures]:
     """Most-demanding medicines, ranked by net units sold."""
-    items = visible_items(store)
+    items = _items(store, items)
     ranked = sorted(
         items, key=lambda item: purchase.net_sold(item, analysis_days), reverse=True
     )
     return ranked[:limit]
 
 
-def needs_attention(store) -> list[ItemFigures]:
+def needs_attention(store, items=None) -> list[ItemFigures]:
     """Out-of-stock and critical items, shortest cover first."""
     items = [
         item
-        for item in visible_items(store)
+        for item in _items(store, items)
         if purchase.status_of(item) in (purchase.STATUS_OUT, purchase.STATUS_CRITICAL)
     ]
     return sorted(items, key=purchase.days_left)
 
 
-def near_expiry(store) -> list[ItemFigures]:
+def near_expiry(store, items=None) -> list[ItemFigures]:
     """Items with an expiry batch, soonest expiry first."""
-    items = [item for item in visible_items(store) if item.expiry_key]
+    items = [item for item in _items(store, items) if item.expiry_key]
     return sorted(items, key=lambda item: item.expiry_key)
 
 
 def stock_rows(
-    store, query: str = "", supplier: str = "", status: str = ""
+    store, query: str = "", supplier: str = "", status: str = "", items=None
 ) -> list[ItemFigures]:
     """Full stock position, filtered by search text, supplier and status."""
-    items = visible_items(store)
+    items = _items(store, items)
     query = query.strip().lower()
     rows = [
         item
@@ -116,6 +142,6 @@ def stock_rows(
     return sorted(rows, key=purchase.days_left)
 
 
-def suppliers(store) -> list[str]:
+def suppliers(store, items=None) -> list[str]:
     """Supplier names present in the visible data, sorted."""
-    return sorted({item.supplier for item in visible_items(store) if item.supplier})
+    return sorted({item.supplier for item in _items(store, items) if item.supplier})

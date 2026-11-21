@@ -80,3 +80,22 @@ ItemCode, ItemName, ItemStock, ReOrderLevel, MaxLevel, VendorCode,
 Manufacturer, ItemGroup. SaleVoucher: VoucherNo, VoucherDate. Views:
 ItemStock (InQty/OutQty), JournalEntries. Suppliers seen in real data:
 Premier Agencies, Aslam Traders, Madina Medicine Co.
+
+## Troubleshooting — POS connection (v1.2.0)
+
+The app only reads POS_DB (SELECT). When Refresh or Test Connection
+fails, the message now names the cause and the check:
+
+| Message says | Check on the PC |
+|---|---|
+| ODBC Driver … installed nahi hai | Install **Microsoft ODBC Driver 18 for SQL Server** (free, Microsoft site), then retry. The app picks the newest installed driver itself. |
+| SQL Server (…) nahi mil raha | 1) **SQL Server (SQLEXPRESS)** service running? (services.msc) 2) **SQL Server Browser** service running? (named instance isi se milta hai) 3) SQL Server Configuration Manager → TCP/IP **Enabled**? |
+| Login fail hua | SmilePOS jis Windows user se chalta hai usi se assistant chalaien, ya Settings mein dedicated read-only SQL login lagayein. |
+| Database '…' nahi mili | Settings → Database ka naam check karein (aam tor par `POS_DB`). |
+| Connection timeout | Server ka naam mil gaya lekin jawab nahi — Browser/TCP check karein, ya server `localhost,1433` try karein. |
+
+Notes: a refresh uses **one** ODBC connection for all queries, so a
+slow Browser no longer multiplies the wait. The window stays
+responsive during a refresh (worker thread). All Stock / Reorder
+tables show at most 200 rows at a time (most urgent first); the full
+count is in the summary line.

@@ -27,13 +27,22 @@ def _override_map(store) -> dict[str, Override]:
 
 
 def build_report_data(
-    store, analysis_days: int, cover_days: int, safety_days: int
+    store, analysis_days: int, cover_days: int, safety_days: int,
+    items=None, suggestions=None, overrides=None,
 ) -> dict:
-    """All report sections, computed from the visible (demo or live) data."""
+    """All report sections, computed from the visible (demo or live) data.
+
+    v1.2.0: accepts pre-loaded `items`, `suggestions` and `overrides`
+    so the caller computes them once instead of reloading everything.
+    """
     purchase.validate_settings(analysis_days, cover_days, safety_days)
-    items = stock_service.visible_items(store)
-    overrides = _override_map(store)
-    suggestions = purchase_service.suggestions(store, analysis_days, cover_days, safety_days)
+    items = stock_service._items(store, items)
+    if overrides is None:
+        overrides = _override_map(store)
+    if suggestions is None:
+        suggestions = purchase_service.suggestions(
+            store, analysis_days, cover_days, safety_days, items=items
+        )
     suggestion_qty = {
         row["item"].item_code: row["final_qty"] for row in suggestions
     }

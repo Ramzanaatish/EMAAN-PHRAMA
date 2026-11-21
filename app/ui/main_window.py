@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -50,7 +50,6 @@ from ..core.config import (
     resource_path,
     validate_server_address,
 )
-from ..core.errors import ConnectorError
 from ..services import (
     audit_service,
     import_service,
@@ -143,6 +142,45 @@ class CalculationDialog(QDialog):
         self.accept()
 
 
+class PosWorker(QObject):
+    """One POS call off the UI thread, so the window never freezes.
+
+    v1.2.0: the old code ran the whole refresh (11 ODBC connections)
+    on the UI thread — the window looked hung for the entire refresh.
+    The worker runs it in a QThread and reports back with signals
+    only; it never touches a widget. `mode` is "refresh" or "test".
+    """
+
+    finished = Signal(dict)
+    failed = Signal(str)
+
+    def __init__(self, store, mode, server=None, database=None, auth=None):
+        super().__init__()
+        self.store = store
+        self.mode = mode
+        self.server = server
+        self.database = database
+        self.auth = auth
+
+    @Slot()
+    def run(self):
+        try:
+            connector = SqlServerConnector(
+                server=self.server or self.store.get_setting("server"),
+                database=self.database or self.store.get_setting("database"),
+                auth=self.auth or self.store.get_setting("auth"),
+            )
+            if self.mode == "test":
+                detail = connector.test_connection()
+                self.finished.emit({"mode": "test", "detail": detail})
+            else:
+                result = import_service.refresh_from_pos(self.store, connector)
+                result["mode"] = "refresh"
+                self.finished.emit(result)
+        except Exception as exc:  # noqa: BLE001 - reported to the UI
+            self.failed.emit(str(exc))
+
+
 def segmented_buttons(options, current, on_change):
     """A row of toggle buttons acting as one segmented control."""
     layout = QHBoxLayout()
@@ -161,6 +199,11 @@ def segmented_buttons(options, current, on_change):
 class MainWindow(QMainWindow):
     """The Pharma Purchase Assistant main window."""
 
+    # All Stock tab renders at most this many rows at once. The full
+    # filtered list is still searched; only the widget build is capped,
+    # so a 5,000-item catalogue no longer freezes the tab per keystroke.
+    MAX_STOCK_ROWS = 200
+
     def __init__(self, store):
         super().__init__()
         self.store = store
@@ -168,6 +211,13 @@ class MainWindow(QMainWindow):
         self.cover_days = store.get_int_setting("cover_days", DEFAULT_COVER_DAYS)
         self.safety_days = store.get_int_setting("safety_days", DEFAULT_SAFETY_DAYS)
         self.draft_order_id: int | None = None
+        self._refresh_thread: QThread | None = None
+        self._refresh_worker: PosWorker | None = None
+        self._test_thread: QThread | None = None
+        self._test_worker: PosWorker | None = None
+        self._last_items = []
+        self._last_suggestions = []
+        self._supplier_options: list[str] = []
         self.setWindowTitle(f"{PHARMACY_NAME} — Pharma Purchase Assistant")
         self.setStyleSheet(STYLESHEET)
         self.resize(1240, 860)
@@ -376,23 +426,45 @@ class MainWindow(QMainWindow):
         self.refresh_all()
 
     def _on_refresh(self) -> None:
-        try:
-            connector = SqlServerConnector(
-                server=self.store.get_setting("server"),
-                database=self.store.get_setting("database"),
-                auth=self.store.get_setting("auth"),
-            )
-            result = import_service.refresh_from_pos(self.store, connector)
-            self.draft_order_id = None
-            self.refresh_all()
-            self.toast(f"Live data refresh ho gaya — {result['rows_imported']} items import hue.")
-        except ConnectorError as exc:
-            QMessageBox.warning(
-                self, "Refresh fail hua",
-                f"POS_DB se connect nahi ho saka:\n\n{exc}\n\n"
-                "Client PC par SQL Server (SQLEXPRESS) service aur ODBC Driver "
-                "check karein.",
-            )
+        """Start a live refresh in a worker thread (UI stays responsive)."""
+        if self._refresh_thread is not None and self._refresh_thread.isRunning():
+            return
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText("↻ Refreshing…")
+        self.statusBar().showMessage("POS_DB se live data fetch ho raha hai…")
+        thread = QThread(self)
+        worker = PosWorker(self.store, "refresh")
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_refresh_finished)
+        worker.failed.connect(self._on_refresh_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._refresh_thread = thread
+        self._refresh_worker = worker
+        thread.start()
+
+    def _finish_refresh(self) -> None:
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("↻ Refresh Data")
+        self.statusBar().showMessage("Ready")
+        self._refresh_thread = None
+        self._refresh_worker = None
+
+    def _on_refresh_finished(self, result: dict) -> None:
+        self._finish_refresh()
+        self.draft_order_id = None
+        self.refresh_all()
+        self.toast(f"Live data refresh ho gaya — {result['rows_imported']} items import hue.")
+
+    def _on_refresh_failed(self, message: str) -> None:
+        self._finish_refresh()
+        QMessageBox.warning(
+            self, "Refresh fail hua",
+            f"POS_DB se connect nahi ho saka:\n\n{message}",
+        )
 
     # ------------------------------------------------------------------ refresh
     def refresh_all(self) -> None:
@@ -414,16 +486,31 @@ class MainWindow(QMainWindow):
             else f"Last fetch: {last_fetch}" if last_fetch
             else "Last fetch: — abhi tak koi live fetch nahi hua"
         )
-        self._render_kpis()
-        self._render_overview()
-        self._render_reorder()
+        # v1.2.0: load the catalogue ONCE and pass it down. The old code
+        # re-ran a full SELECT * + object build inside every render
+        # function (~10 loads per refresh_all).
+        items = stock_service.visible_items(self.store)
+        override_details = stock_service.override_details(self.store)
+        overrides = {
+            code: detail["qty"] for code, detail in override_details.items()
+        }
+        suggestions = purchase_service.suggestions(
+            self.store, self.analysis_days, self.cover_days, self.safety_days,
+            items=items, override_details=override_details,
+        )
+        self._last_items = items
+        self._last_suggestions = suggestions
+        self._render_kpis(items, overrides)
+        self._render_overview(items)
+        self._render_reorder(suggestions)
         self._render_stock()
-        self._render_report()
+        self._render_report(items, suggestions, override_details)
         self._render_settings()
 
-    def _render_kpis(self) -> None:
+    def _render_kpis(self, items, overrides) -> None:
         data = stock_service.kpis(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
+            self.store, self.analysis_days, self.cover_days, self.safety_days,
+            items=items, overrides=overrides,
         )
         labels = {
             "total_items": ("Total Items", "catalogue"),
@@ -502,8 +589,7 @@ class MainWindow(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
 
-    def _render_overview(self) -> None:
-        items = stock_service.visible_items(self.store)
+    def _render_overview(self, items) -> None:
         self._clear_layout(self.demand_list)
         self._clear_layout(self.attention_list)
         self._clear_layout(self.expiry_list)
@@ -517,7 +603,7 @@ class MainWindow(QMainWindow):
             self.expiry_list.addWidget(EmptyState(
                 "Live data will appear here after connecting to POS_DB.", ""))
             return
-        ranked = stock_service.demand_ranking(self.store, self.analysis_days, limit=10)
+        ranked = stock_service.demand_ranking(self.store, self.analysis_days, limit=10, items=items)
         top_qty = purchase.net_sold(ranked[0], self.analysis_days) or 1
         for index, item in enumerate(ranked):
             qty = purchase.net_sold(item, self.analysis_days)
@@ -537,7 +623,8 @@ class MainWindow(QMainWindow):
             row.addWidget(bar, stretch=1)
             row.addWidget(QLabel(f"{qty:,} units"))
             self.demand_list.addLayout(row)
-        for item in stock_service.needs_attention(self.store):
+        attention = stock_service.needs_attention(self.store, items=items)
+        for item in attention[:50]:
             row = QHBoxLayout()
             row.addWidget(status_chip(purchase.status_of(item)))
             info = QLabel(f"{item.name}\n{item.supplier} · usable stock "
@@ -547,7 +634,12 @@ class MainWindow(QMainWindow):
             days = purchase.days_left(item)
             row.addWidget(QLabel("Khatam" if days == float("inf") else f"{days:.1f} din"))
             self.attention_list.addLayout(row)
-        for item in stock_service.near_expiry(self.store):
+        if len(attention) > 50:
+            self.attention_list.addWidget(QLabel(
+                f"…aur {len(attention) - 50} items — Reorder Suggestions tab mein poori list hai."
+            ))
+        expiry = stock_service.near_expiry(self.store, items=items)
+        for item in expiry[:50]:
             row = QHBoxLayout()
             row.addWidget(QLabel(
                 f"{item.name}\nBatch {item.expiry_batch} · {item.expiry_qty:,} units "
@@ -555,6 +647,8 @@ class MainWindow(QMainWindow):
             ), stretch=1)
             row.addWidget(QLabel(f"EXP {item.expiry_date}"))
             self.expiry_list.addLayout(row)
+        if len(expiry) > 50:
+            self.expiry_list.addWidget(QLabel(f"…aur {len(expiry) - 50} items."))
 
     # ------------------------------------------------------------------ reorder tab
     def _build_reorder_tab(self) -> QWidget:
@@ -641,13 +735,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(card)
         return tab
 
-    def _render_reorder(self) -> None:
-        rows = purchase_service.suggestions(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
-        )
+    def _render_reorder(self, suggestions) -> None:
+        rows = suggestions
         table = self.reorder_table
         table.setRowCount(0)
-        if not stock_service.visible_items(self.store):
+        if not self._last_items:
             self.reorder_summary.setText("")
             table.setRowCount(1)
             table.setSpan(0, 0, 1, 9)
@@ -658,15 +750,30 @@ class MainWindow(QMainWindow):
             table.setCellWidget(0, 0, empty)
             self._render_order_box()
             return
-        table.setRowCount(len(rows))
-        total_qty = 0
-        total_cost = 0
-        for row_index, row in enumerate(rows):
+        # Draft codes once — the old code ran one DB query per row.
+        draft_codes: set[str] = set()
+        if self.draft_order_id is not None:
+            with self.store.session() as session:
+                from ..database.models import PurchaseOrderItem
+
+                draft_codes = {
+                    row[0]
+                    for row in session.query(PurchaseOrderItem.item_code)
+                    .filter(PurchaseOrderItem.order_id == self.draft_order_id)
+                    .all()
+                }
+        # Reorder table bhi capped hai (MAX_STOCK_ROWS) — 2,000+ rows ke
+        # widgets banana hi sab se bara freeze tha. Rows days_left ke
+        # hisab se sorted hain, to sab se urgent pehle dikhte hain.
+        # Totals poori list ke hain, sirf dikhaye gaye rows capped hain.
+        total_qty = sum(row["final_qty"] for row in rows)
+        total_cost = sum(row["final_qty"] * row["item"].cost for row in rows)
+        shown = rows[: self.MAX_STOCK_ROWS]
+        table.setRowCount(len(shown))
+        for row_index, row in enumerate(shown):
             item = row["item"]
             qty = row["final_qty"]
             cost = qty * item.cost
-            total_qty += qty
-            total_cost += cost
             table.setItem(row_index, 0, QTableWidgetItem(f"{item.name}\n{item.pack}"))
             table.setItem(row_index, 1, QTableWidgetItem(item.supplier))
             table.setItem(row_index, 2, QTableWidgetItem(f"{purchase.usable_stock(item):,}"))
@@ -685,7 +792,7 @@ class MainWindow(QMainWindow):
             calc_button.clicked.connect(
                 lambda _checked, it=item: self._open_calculation(it)
             )
-            in_draft = self._draft_contains(item.item_code)
+            in_draft = item.item_code in draft_codes
             draft_button = QPushButton("✓ Draft mein hai" if in_draft else "+ Draft")
             if not in_draft:
                 draft_button.setObjectName("primary")
@@ -695,8 +802,11 @@ class MainWindow(QMainWindow):
             actions_layout.addWidget(calc_button)
             actions_layout.addWidget(draft_button)
             table.setCellWidget(row_index, 8, actions)
+        hidden = len(rows) - len(shown)
         self.reorder_summary.setText(
             f"{len(rows)} items · total {total_qty:,} units · {format_money(total_cost)}"
+            + (f" — pehle {len(shown)} dikhaye ja rahe hain (sab se urgent pehle)"
+               if hidden > 0 else "")
         )
         self._render_order_box()
 
@@ -709,24 +819,8 @@ class MainWindow(QMainWindow):
             self.refresh_all()
             self.toast("Override save ho gaya aur audit trail mein record hai.")
 
-    def _draft_contains(self, item_code: str) -> bool:
-        if self.draft_order_id is None:
-            return False
-        with self.store.session() as session:
-            from ..database.models import PurchaseOrderItem
-
-            return (
-                session.query(PurchaseOrderItem)
-                .filter(PurchaseOrderItem.order_id == self.draft_order_id)
-                .filter(PurchaseOrderItem.item_code == item_code)
-                .first()
-                is not None
-            )
-
     def _toggle_draft(self, item) -> None:
-        rows = purchase_service.suggestions(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
-        )
+        rows = self._last_suggestions
         if self.draft_order_id is None:
             order = order_service.build_draft(self.store, [])
             self.draft_order_id = order.id
@@ -902,17 +996,27 @@ class MainWindow(QMainWindow):
         toolbar = QHBoxLayout()
         self.stock_search = QLineEdit()
         self.stock_search.setPlaceholderText("Medicine ka naam search karein…")
-        self.stock_search.textChanged.connect(self._render_stock)
+        # Debounced: har keystroke par poori table dobara banana band —
+        # 250 ms ruk kar ek dafa render hota hai.
+        self.stock_search.textChanged.connect(self._on_stock_search_changed)
+        self._stock_search_timer = QTimer(self)
+        self._stock_search_timer.setSingleShot(True)
+        self._stock_search_timer.setInterval(250)
+        self._stock_search_timer.timeout.connect(self._render_stock)
         toolbar.addWidget(self.stock_search, stretch=1)
         self.supplier_filter = QComboBox()
         self.supplier_filter.addItem("Sab Suppliers", "")
-        self.supplier_filter.currentIndexChanged.connect(self._render_stock)
+        self.supplier_filter.currentIndexChanged.connect(
+            lambda _index: self._render_stock()
+        )
         toolbar.addWidget(self.supplier_filter)
         self.status_filter = QComboBox()
         for label, value in [("Sab Status", ""), ("Out of Stock", "out"),
                              ("Critical", "critical"), ("Low", "low"), ("OK", "ok")]:
             self.status_filter.addItem(label, value)
-        self.status_filter.currentIndexChanged.connect(self._render_stock)
+        self.status_filter.currentIndexChanged.connect(
+            lambda _index: self._render_stock()
+        )
         toolbar.addWidget(self.status_filter)
         card_layout.addLayout(toolbar)
         self.stock_table = QTableWidget()
@@ -927,29 +1031,41 @@ class MainWindow(QMainWindow):
         self.stock_empty = QLabel("Koi item match nahi hua — search ya filter badal kar dekhein.")
         self.stock_empty.setObjectName("hint")
         card_layout.addWidget(self.stock_empty)
+        self.stock_more_label = QLabel("")
+        self.stock_more_label.setObjectName("hint")
+        card_layout.addWidget(self.stock_more_label)
         layout.addWidget(card)
         return tab
 
+    def _on_stock_search_changed(self) -> None:
+        self._stock_search_timer.start()
+
     def _render_stock(self) -> None:
-        suppliers = stock_service.suppliers(self.store)
-        current = self.supplier_filter.currentData()
-        self.supplier_filter.blockSignals(True)
-        self.supplier_filter.clear()
-        self.supplier_filter.addItem("Sab Suppliers", "")
-        for supplier in suppliers:
-            self.supplier_filter.addItem(supplier, supplier)
-        index = self.supplier_filter.findData(current)
-        self.supplier_filter.setCurrentIndex(index if index >= 0 else 0)
-        self.supplier_filter.blockSignals(False)
+        # Supplier list sirf tabdeel honay par dobara banti hai — har
+        # render par combo clear + refill band.
+        suppliers = stock_service.suppliers(self.store, items=self._last_items)
+        if suppliers != self._supplier_options:
+            self._supplier_options = suppliers
+            current = self.supplier_filter.currentData()
+            self.supplier_filter.blockSignals(True)
+            self.supplier_filter.clear()
+            self.supplier_filter.addItem("Sab Suppliers", "")
+            for supplier in suppliers:
+                self.supplier_filter.addItem(supplier, supplier)
+            index = self.supplier_filter.findData(current)
+            self.supplier_filter.setCurrentIndex(index if index >= 0 else 0)
+            self.supplier_filter.blockSignals(False)
         rows = stock_service.stock_rows(
             self.store,
             query=self.stock_search.text(),
             supplier=self.supplier_filter.currentData() or "",
             status=self.status_filter.currentData() or "",
+            items=self._last_items,
         )
         table = self.stock_table
-        table.setRowCount(len(rows))
-        for row_index, item in enumerate(rows):
+        shown = rows[: self.MAX_STOCK_ROWS]
+        table.setRowCount(len(shown))
+        for row_index, item in enumerate(shown):
             status = purchase.status_of(item)
             table.setItem(row_index, 0, QTableWidgetItem(f"{item.name}\n{item.pack}"))
             table.setItem(row_index, 1, QTableWidgetItem(item.supplier))
@@ -965,8 +1081,11 @@ class MainWindow(QMainWindow):
             table.setItem(row_index, 6, QTableWidgetItem(f"{item.reorder_level:,} / {item.max_level:,}"))
             chip = status_chip(status)
             table.setCellWidget(row_index, 7, chip)
-        self.stock_empty.setVisible(
-            bool(stock_service.visible_items(self.store)) and not rows
+        self.stock_empty.setVisible(bool(self._last_items) and not rows)
+        hidden = len(rows) - len(shown)
+        self.stock_more_label.setText(
+            f"…aur {hidden:,} items — search ya filter se narrow karein."
+            if hidden > 0 else ""
         )
 
     # ------------------------------------------------------------------ report tab
@@ -991,9 +1110,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.report_browser, stretch=1)
         return tab
 
-    def _render_report(self) -> None:
+    def _render_report(self, items, suggestions, overrides) -> None:
         data = report_service.build_report_data(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
+            self.store, self.analysis_days, self.cover_days, self.safety_days,
+            items=items, suggestions=suggestions, overrides=overrides,
         )
         if not data["summary"]["total_items"]:
             self.report_browser.setHtml(
@@ -1008,7 +1128,8 @@ class MainWindow(QMainWindow):
 
     def _on_download_pdf(self) -> None:
         data = report_service.build_report_data(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
+            self.store, self.analysis_days, self.cover_days, self.safety_days,
+            items=self._last_items, suggestions=self._last_suggestions,
         )
         path, _ = QFileDialog.getSaveFileName(
             self, "Daily Report (PDF) Save Karein",
@@ -1023,7 +1144,8 @@ class MainWindow(QMainWindow):
 
     def _on_download_excel(self) -> None:
         data = report_service.build_report_data(
-            self.store, self.analysis_days, self.cover_days, self.safety_days
+            self.store, self.analysis_days, self.cover_days, self.safety_days,
+            items=self._last_items, suggestions=self._last_suggestions,
         )
         path, _ = QFileDialog.getSaveFileName(
             self, "Daily Report (Excel) Save Karein",
@@ -1249,20 +1371,48 @@ class MainWindow(QMainWindow):
                 "ya SERVER,port — masalan localhost\\SQLEXPRESS.",
             )
             return
-        try:
-            connector = SqlServerConnector(
-                server=server,
-                database=self.cfg_db.text().strip(),
-                auth=self.cfg_auth.currentData(),
-            )
-            result = connector.test_connection()
-            self.test_result.setText(f"✓ {result}")
-            self.toast("Connection test kamyab raha.")
-        except ConnectorError as exc:
-            self.test_result.setText(
-                "Connection test nahi ho saka — is machine par live POS connection "
-                f"maujood nahi:\n{exc}"
-            )
+        if self._test_thread is not None and self._test_thread.isRunning():
+            return
+        database = self.cfg_db.text().strip()
+        if not database:
+            QMessageBox.warning(self, "Missing value", "Database lazmi hai.")
+            return
+        self.test_conn_button.setEnabled(False)
+        self.test_result.setText("Testing…")
+        thread = QThread(self)
+        worker = PosWorker(
+            self.store, "test",
+            server=server, database=database,
+            auth=self.cfg_auth.currentData(),
+        )
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_test_finished)
+        worker.failed.connect(self._on_test_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._test_thread = thread
+        self._test_worker = worker
+        thread.start()
+
+    def _finish_test(self) -> None:
+        self.test_conn_button.setEnabled(True)
+        self._test_thread = None
+        self._test_worker = None
+
+    def _on_test_finished(self, result: dict) -> None:
+        self._finish_test()
+        self.test_result.setText(f"✓ {result['detail']}")
+        self.toast("Connection test kamyab raha.")
+
+    def _on_test_failed(self, message: str) -> None:
+        self._finish_test()
+        self.test_result.setText(
+            "Connection test nahi ho saka — is machine par live POS connection "
+            f"maujood nahi:\n{message}"
+        )
 
     def _on_save_calculation(self) -> None:
         self.safety_days = self.cfg_safety.value()

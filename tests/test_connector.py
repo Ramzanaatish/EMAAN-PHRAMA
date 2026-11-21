@@ -62,7 +62,7 @@ class StubConnector(SqlServerConnector):
         self.canned = canned
         self.seen = []
 
-    def _query(self, sql, params=()):
+    def _query(self, sql, params=(), conn=None):
         self.seen.append(sql)
         return self.canned.pop(0)
 
@@ -71,7 +71,8 @@ def test_fetch_sales_discovers_quantity_column():
     connector = StubConnector([
         [{"COLUMN_NAME": "ID"}, {"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "ItemCode"},
          {"COLUMN_NAME": "Quantity"}],
-        [{"ItemCode": "A", "NetQty": 10}],
+        [{"COLUMN_NAME": "VoucherNo"}, {"COLUMN_NAME": "VoucherDate"}],
+        [{"ItemCode": "A", "Net7": 2, "Net30": 10, "Net90": 25}],
     ])
     rows = connector.fetch_sales(30)
     assert rows == [{"ItemCode": "A", "NetQty": 10}]
