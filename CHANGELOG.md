@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.3.0 — 2026-11-21
+
+HTML file + server connector ("html file ho and sath main server connector
+ho, kia ye work kry ga?" — Nelson, 21 Nov 2026). Jawab: haan — Flask
+server (`app/web.py`) pehle se hi server connector hai (POS_DB read-only
++ JSON API); is version mein HTML file us se judne ke qabil ban gayi.
+
+- **CORS on:** server har API jawab par `Access-Control-Allow-Origin: *`
+  (GET/POST/OPTIONS) bhejta hai — file:// se khuli page ab
+  `http://127.0.0.1:5000/api/...` call kar sakti hai. Server se serve
+  hui page same-origin hi rehti hai.
+- **HTML mein API base:** file:// se khole to base
+  `http://127.0.0.1:5000`, warna same-origin. Saari 6 fetch calls
+  (`/api/data`, `/api/health`, `/api/refresh`, `/api/settings`,
+  `/api/test-connection`) is base se hoti hain. Server band ho to
+  Roman-Urdu mein kehta hai: "Server nahi chal raha — PharmaServer.exe
+  chalao".
+- **Server port 5000:** `server.py` ka default port 8080 se 5000 hua —
+  HTML, README aur run instructions mein bhi wahi port hai.
+- **One-click launcher:** `start-server.bat` (plain CMD) — PharmaServer.exe
+  chalata hai, phir HTML file browser mein kholta hai.
+- **PharmaServer.exe:** `server.spec` (PyInstaller onefile, console) —
+  pharmacy PC par Python install nahi chahiye. CI ab desktop Setup ke
+  saath `PharmaServer` artifact bhi banata hai.
+- **Desktop app waisa ka waisa hai** — ye setup us ka alternate tareeqa
+  hai, replacement nahi.
+- Tests: 125 passed (118 + 7 naye HTML/server tests). Shart yaad rakhein:
+  akele HTML file SQL Server se nahi jud sakti — server chalta rehna
+  lazmi hai, warna demo data dikhta hai.
+
 ## v1.2.1 — 2026-11-21
 
 Smooth startup ("load hony main time ly rha hai, preview main issue hai,

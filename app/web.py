@@ -90,6 +90,22 @@ def create_app(store=None, connector=None, html_path=None, connector_factory=Non
     html_path = Path(html_path) if html_path else default_html_path()
     app = Flask(__name__)
 
+    @app.after_request
+    def add_cors_headers(response):
+        """Let a file:// dashboard call this API.
+
+        The standalone HTML file (double-clicked, file://) is a different
+        origin from http://127.0.0.1:5000, so browsers block its fetch()
+        calls unless the server answers with CORS headers. Same-origin
+        serving (dashboard opened from the server itself) is unaffected.
+        """
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization"
+        )
+        return response
+
     def get_connector():
         if injected is not None:
             return injected

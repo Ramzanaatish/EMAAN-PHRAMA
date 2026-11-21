@@ -121,7 +121,7 @@ Start it (in the project folder, after step 2 install):
 .venv\Scripts\python server.py
 ```
 
-Then open **http://localhost:8080/** in the browser. Use another port with
+Then open **http://localhost:5000/** in the browser. Use another port with
 `python server.py --port 8090` (then open http://localhost:8090/).
 
 How to tell live from demo:
@@ -170,7 +170,7 @@ How to tell live from demo:
   Server connection and a real data refresh (this VM has no SQL Server and
   no ODBC driver), the HTML showing live data in a real browser, and the
   app running on a real Windows desktop. On the PC, start `server.py`,
-  open http://localhost:8080/ and look for the green LIVE badge; if the
+  open http://localhost:5000/ and look for the green LIVE badge; if the
   badge stays on PREVIEW, read the red error banner for the reason.
 - **NOT verified here (needs the Windows CI run):** the GitHub Actions
   installer build (PyInstaller folder mode + Inno Setup compile) — the

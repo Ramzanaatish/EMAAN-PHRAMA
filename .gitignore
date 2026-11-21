@@ -17,6 +17,7 @@ env/
 build/
 dist/
 *.spec
+!server.spec
 *.egg-info/
 
 # SQLite local data (created at runtime; never commit real data)

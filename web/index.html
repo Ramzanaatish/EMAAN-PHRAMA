@@ -322,7 +322,7 @@
 
     <div class="wrap">
       <div class="live-error" id="liveError" style="display:none" role="alert">
-        <div class="box"><b>⚠ Live data unavailable</b> — <span id="liveErrorMsg"></span> Filhal demo (sample) data dikhaya ja raha hai. Live data ke liye local server chala kar page <span class="mono">http://localhost:8080</span> se kholein — file se khuli page server tak nahi pohanch sakti.</div>
+        <div class="box"><b>⚠ Live data unavailable</b> — <span id="liveErrorMsg"></span> Filhal demo (sample) data dikhaya ja raha hai. Live data ke liye PharmaServer.exe chalao (server: <span class="mono">http://127.0.0.1:5000</span>) — file se khuli page bhi server se jud jati hai.</div>
       </div>
       <div class="head">
         <p>SmilePOS ke data se rozana ki purchasing guide: kaun si medicine sab se zyada bik rahi hai, kahan stock khatam honay wala hai, aur kis supplier se kitna order karna hai — har suggestion ke peeche poori calculation nazar aati hai.</p>
@@ -572,6 +572,14 @@
     <div class="toast" id="toast" role="status"></div>
 
     <script>
+      // ---- API base: file:// se khuli page (double-click) local server
+      // http://127.0.0.1:5000 se baat karti hai; server se serve hui page
+      // same-origin (khali base) use karti hai. Server band ho to live
+      // data nahi aata — PharmaServer.exe chalana lazmi hai.
+      var API_BASE = (window.location.protocol === "file:")
+        ? "http://127.0.0.1:5000" : "";
+      function apiUrl(path){ return API_BASE + path; }
+
       // ---- Sample (demo) data — live version mein yehi fields POS_DB se aayenge:
       // ItemInfo (ReOrderLevel/MaxLevel), ItemStock view, SaleDetail (net demand), AccountInfo (supplier)
       // net30 = net sales 30 din (returns/cancelled hata kar) · f7/f90 = 7 aur 90 din ke hisse
@@ -1167,7 +1175,7 @@
         else if (a.indexOf("windows") > -1) sel.selectedIndex = 0;
       }
       function loadSettings(){
-        fetch("/api/settings").then(function(r){
+        fetch(apiUrl("/api/settings")).then(function(r){
           if (!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         }).then(function(j){
@@ -1190,7 +1198,7 @@
         var payload = connPayload();
         if (!payload.server){ toast("Pehle Server / Instance likhein."); document.getElementById("cfgServer").focus(); return; }
         showConnResult(false, "Settings server par save ho rahi hain… (POST /api/settings — " + payload.server + ")");
-        fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
+        fetch(apiUrl("/api/settings"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
           return r.json().then(function(j){
             if (!r.ok || (j && j.ok === false)) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
             return j || {};
@@ -1201,11 +1209,11 @@
           renderChrome();
           toast("Connection settings save ho gayein — server: " + payload.server);
         }).catch(function(err){
-          showConnResult(false, "✗ Settings save nahi ho sakein: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Likhi hui values fields mein mehfooz hain, dobara koshish karein.");
+          showConnResult(false, "✗ Settings save nahi ho sakein: " + err.message + " — local server (http://127.0.0.1:5000) chal raha hai ya nahi, check karein. Likhi hui values fields mein mehfooz hain, dobara koshish karein.");
         });
       });
       function testViaHealth(){
-        fetch("/api/health").then(function(r){
+        fetch(apiUrl("/api/health")).then(function(r){
           return r.json().then(function(j){
             return { okStatus: r.ok, j: j || {} };
           }, function(){ throw new Error("Server se ghalat jawab mila (HTTP " + r.status + ")"); });
@@ -1217,14 +1225,14 @@
             showConnResult(false, "✗ Connection masla — " + (j.message || j.error || "server ne ok nahi bheja") + " (Database: " + (j.database || "—") + ", live items: " + (j.live_items != null ? j.live_items : "—") + ", last fetch: " + (j.last_fetch || "—") + ")");
           }
         }).catch(function(err){
-          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.");
+          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://127.0.0.1:5000) chal raha hai ya nahi, check karein. File se khuli page ke liye PharmaServer.exe chal raha hona chahiye.");
         });
       }
       document.getElementById("testConnBtn").addEventListener("click", function(){
         var payload = connPayload();
         if (!payload.server){ toast("Pehle Server / Instance likhein."); document.getElementById("cfgServer").focus(); return; }
         showConnResult(false, "Typed server se rabta ho raha hai… (POST /api/test-connection — " + payload.server + ")");
-        fetch("/api/test-connection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
+        fetch(apiUrl("/api/test-connection"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(r){
           if (r.status === 404) return { viaHealth: true };
           return r.json().then(function(j){
             return { okStatus: r.ok, j: j || {} };
@@ -1238,7 +1246,7 @@
             showConnResult(false, "✗ Connection fail — " + (j.message || j.error || "server ne ok nahi bheja") + " (Server: " + payload.server + ", Database: " + payload.database + ")");
           }
         }).catch(function(err){
-          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://localhost:8080) chal raha hai ya nahi, check karein. Page file se khuli ho to live test nahi ho sakta.");
+          showConnResult(false, "✗ Server se rabta nahi ho saka: " + err.message + " — local server (http://127.0.0.1:5000) chal raha hai ya nahi, check karein. File se khuli page ke liye PharmaServer.exe chal raha hona chahiye.");
         });
       });
       document.getElementById("saveCalcBtn").addEventListener("click", function(){
@@ -1310,7 +1318,7 @@
         document.getElementById("liveError").style.display = "none";
       }
       function fetchLiveData(){
-        return fetch("/api/data").then(function(r){
+        return fetch(apiUrl("/api/data")).then(function(r){
           return r.json().then(function(j){
             if (!r.ok || !j || !j.ok) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
             return j;
@@ -1331,7 +1339,7 @@
           logAudit("Live data load hua — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
           toast("Live data aa gaya — POS_DB se " + j.items.length + " items dikh rahe hain.");
         }).catch(function(err){
-          showLiveError("Server se rabta nahi ho saka: " + err.message);
+          showLiveError("Server se rabta nahi ho saka: " + err.message + " — Server nahi chal raha — PharmaServer.exe chalao (start-server.bat se).");
         });
       }
 
@@ -1340,7 +1348,7 @@
         var btn = this;
         if (btn.classList.contains("spinning")) return;
         btn.classList.add("spinning"); btn.disabled = true;
-        fetch("/api/refresh", { method: "POST" }).then(function(r){
+        fetch(apiUrl("/api/refresh"), { method: "POST" }).then(function(r){
           return r.json().then(function(j){
             if (!r.ok || !j || j.ok === false) throw new Error((j && (j.message || j.error)) || ("Server error (HTTP " + r.status + ")"));
             return j;
@@ -1352,7 +1360,7 @@
           renderAll();
           toast("Live data refresh ho gaya — POS_DB se " + j.items.length + " items (" + state.liveFetchedAt + ").");
         }).catch(function(err){
-          showLiveError("Refresh fail: " + err.message);
+          showLiveError("Refresh fail: " + err.message + " — Server nahi chal raha ho to PharmaServer.exe chalao (start-server.bat se).");
           toast("Refresh fail — " + err.message + " Current data barqarar hai.");
         }).then(function(){
           btn.classList.remove("spinning"); btn.disabled = false;
